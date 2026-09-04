@@ -22,6 +22,10 @@
 - Redis не хранит Celery task results; `CELERY_TASK_IGNORE_RESULT=True`, а продуктовый progress хранится только в PostgreSQL;
 - Python Redis client закреплён на `redis==5.2.1`: это верхняя совместимая версия для `kombu[redis] 5.5.x`; Redis server остаётся на 7.4;
 - общий development backend image имеет одного владельца сборки (`backend`); Celery services переиспользуют тот же image tag без собственного `build`, чтобы параллельный BuildKit export не конфликтовал;
+- frontend manifest и lockfile создаются/проверяются в `node:24-bookworm-slim`, даже если host Node новее runtime baseline;
+- frontend lint toolchain использует поддерживаемые `eslint==10.9.1` и `@eslint/js==10.0.1`; совместимые peer ranges остальных lint plugins проверены перед обновлением;
+- MSW postinstall явно запрещён через `allowScripts`, поскольку первый срез использует Node handlers и не публикует browser service worker;
+- root `.dockerignore` передаёт frontend build только `frontend/**` и `infrastructure/nginx/**`, исключая `.git`, `.env`, local `node_modules` и `dist`;
 - development requirements lock компилируется с `--allow-unsafe --strip-extras`, чтобы transitive зависимости `pip-tools` (`pip`, `setuptools`) тоже имели exact versions и hashes и принимались `pip install --require-hashes`;
 - корректный RED — запустившийся test с ожидаемым assertion failure. `ModuleNotFoundError`, `KeyError` и другие ошибки test harness сначала исправляются и не считаются подтверждённым RED;
 - Task 1 использует services `postgres`, `redis`, `garage`, volumes `postgres_data`, `redis_data`, `garage_meta`, `garage_data` и `infrastructure/garage/garage.toml`; отдельные `minio-ready`/`minio-init` не создаются.
@@ -928,6 +932,7 @@ git commit -m "feat: configure Celery discovery and normalization queues"
 ### Task 4: Создать React/Vite foundation и production proxy
 
 **Files:**
+- Create: `.dockerignore`
 - Create: `frontend/package.json`
 - Create: `frontend/package-lock.json`
 - Create: `frontend/tsconfig.json`
@@ -941,6 +946,7 @@ git commit -m "feat: configure Celery discovery and normalization queues"
 - Create: `frontend/src/app/App.tsx`
 - Create: `frontend/src/app/App.test.tsx`
 - Create: `frontend/src/app/providers.tsx`
+- Create: `frontend/src/app/providers.test.tsx`
 - Create: `frontend/src/test/setup.ts`
 - Create: `frontend/src/styles/global.css`
 - Create: `infrastructure/nginx/default.conf`
@@ -952,7 +958,7 @@ git commit -m "feat: configure Celery discovery and normalization queues"
 - Consumes: `/api` same-origin proxy to `backend:8000`; Node 24.
 - Produces: Vite app on dev port 5173, nginx on 8080, `AppProviders`, Vitest harness.
 
-- [ ] **Step 1: Создать frontend test harness и install locked dependencies**
+- [x] **Step 1: Создать frontend test harness и install locked dependencies**
 
 ```bash
 mkdir -p frontend
@@ -966,7 +972,7 @@ npm install --save-dev --save-exact vite@8.2.2 @vitejs/plugin-react@6.1.0 \
   @types/react-dom@19.2.5 vitest@5.0.0 jsdom@30.0.1 \
   @testing-library/react@16.3.2 @testing-library/dom@10.4.1 \
   @testing-library/jest-dom@7.0.1 @testing-library/user-event@14.6.7 \
-  eslint@9.39.1 @eslint/js@9.39.1 globals@17.11.0 typescript-eslint@8.67.0 \
+  eslint@10.9.1 @eslint/js@10.0.1 globals@17.11.0 typescript-eslint@8.67.0 \
   eslint-plugin-react-hooks@7.1.1 eslint-plugin-react-refresh@0.5.5 \
   msw@2.15.0 @playwright/test@1.62.1
 cd ..
@@ -989,6 +995,8 @@ cd ..
   }
 }
 ```
+
+`package.json` также содержит `"allowScripts": {"msw": false}`: MSW postinstall копирует browser worker только при настроенном `msw.workerDirectory`, которого в этом срезе нет.
 
 `typecheck` намеренно проверяет оба config напрямую, поэтому `tsconfig.app.json` и `tsconfig.node.json` не обязаны быть composite projects; root `references` остаются для IDE и явного разделения browser/Node environments. Task 4 обязан реально выполнить `npm run typecheck` и `npm run build`, а не только проверить JSON configs.
 
@@ -1127,7 +1135,7 @@ import { afterEach } from 'vitest';
 afterEach(() => cleanup());
 ```
 
-- [ ] **Step 2: Написать failing Russian shell test**
+- [x] **Step 2: Написать failing Russian shell test**
 
 ```tsx
 // frontend/src/app/App.test.tsx
@@ -1143,16 +1151,16 @@ describe('App', () => {
 });
 ```
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 ```bash
 cd frontend
 npm run test:run -- src/app/App.test.tsx
 ```
 
-Expected: FAIL, `Cannot find module './App'` или heading отсутствует.
+Expected: FAIL только на assertion: доступный heading `Локальные бизнесы` отсутствует; import/test harness уже работоспособны.
 
-- [ ] **Step 4: Реализовать минимальный App и providers**
+- [x] **Step 4: Реализовать минимальный App и providers**
 
 ```tsx
 // frontend/src/app/App.tsx
@@ -1165,9 +1173,9 @@ export function App() {
 }
 ```
 
-`AppProviders` создаёт один `QueryClient` с `retry: false` в tests и разумным retry policy в production. `main.tsx` монтирует `App` в `#root`.
+`AppProviders` создаёт один `QueryClient` с `retry: false` в tests и `retry: 2` в production, затем предоставляет `BrowserRouter`. Отдельный test читает реальные default options через `useQueryClient` и фиксирует детерминированный test policy. `main.tsx` монтирует `App` в `#root`.
 
-- [ ] **Step 5: Добавить Dockerfile, Vite proxy и nginx**
+- [x] **Step 5: Добавить Dockerfile, Vite proxy и nginx**
 
 `vite.config.ts` уже содержит exact dev proxy `/api` → `http://backend:8000` из Step 1. `default.conf`:
 
@@ -1216,6 +1224,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 HEALTHCHECK --interval=5s --timeout=3s --retries=20 \
   CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
 ```
+
+Корневой `.dockerignore` использует allowlist для `frontend/**` и `infrastructure/nginx/**`, после чего повторно исключает `frontend/node_modules/` и `frontend/dist/`; секреты и локальные артефакты не попадают в build context.
 
 Exact development/static services:
 
@@ -1267,13 +1277,19 @@ backend-check:
 frontend-test:
 	docker compose run --rm frontend npm run test:run
 
+frontend-install:
+	docker compose build frontend
+	docker compose run --rm frontend npm ci
+
 frontend-check:
 	docker compose run --rm frontend npm run lint
 	docker compose run --rm frontend npm run typecheck
 	docker compose run --rm frontend npm run build
 ```
 
-- [ ] **Step 6: Проверить GREEN, typecheck и production build**
+`frontend-install` синхронизирует существующий named volume `frontend_node_modules` после изменения lockfile; обычная пересборка image не перезаписывает уже созданный Docker volume.
+
+- [x] **Step 6: Проверить GREEN, typecheck и production build**
 
 ```bash
 cd frontend
@@ -1288,7 +1304,7 @@ docker compose build frontend nginx
 
 Expected: все commands exit 0; build создаёт `frontend/dist` внутри build stage.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend infrastructure/nginx docker-compose.yml tests/infra Makefile

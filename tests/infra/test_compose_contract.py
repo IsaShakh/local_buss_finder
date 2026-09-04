@@ -20,10 +20,14 @@ class ComposeContractTest(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
-    def test_stateful_services_are_declared(self) -> None:
+    def test_required_services_are_declared(self) -> None:
         services = self.load_config()["services"]
+        required = {"garage", "postgres", "redis"}
+        required.update(
+            {"backend", "celery-discovery", "celery-normalization", "frontend", "nginx"}
+        )
 
-        self.assertTrue({"garage", "postgres", "redis"}.issubset(services))
+        self.assertTrue(required.issubset(services), required - services.keys())
 
     def test_postgis_uses_the_project_multi_arch_image(self) -> None:
         postgres = self.load_config()["services"]["postgres"]
@@ -72,13 +76,39 @@ class ComposeContractTest(unittest.TestCase):
                     all(port.get("host_ip") == "127.0.0.1" for port in published_ports)
                 )
 
-    def test_stateful_data_uses_named_volumes(self) -> None:
+    def test_persistent_data_uses_named_volumes(self) -> None:
         config = self.load_config()
 
         self.assertEqual(
-            {"garage_data", "garage_meta", "postgres_data", "redis_data"},
+            {
+                "frontend_node_modules",
+                "garage_data",
+                "garage_meta",
+                "postgres_data",
+                "redis_data",
+            },
             set(config.get("volumes", {})),
         )
+
+    def test_frontend_and_nginx_use_expected_build_targets(self) -> None:
+        services = self.load_config()["services"]
+
+        self.assertIn("frontend", services)
+        self.assertIn("nginx", services)
+        self.assertEqual("development", services["frontend"]["build"]["target"])
+        self.assertEqual("production", services["nginx"]["build"]["target"])
+        self.assertEqual(
+            "service_healthy",
+            services["nginx"]["depends_on"]["backend"]["condition"],
+        )
+
+        for service_name in ("frontend", "nginx"):
+            with self.subTest(service=service_name):
+                published_ports = services[service_name].get("ports", [])
+                self.assertTrue(published_ports)
+                self.assertTrue(
+                    all(port.get("host_ip") == "127.0.0.1" for port in published_ports)
+                )
 
     def test_stateful_services_have_real_readiness_checks(self) -> None:
         services = self.load_config()["services"]

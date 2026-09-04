@@ -1,4 +1,4 @@
-.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check workers-up workers-inspect
+.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check frontend-install frontend-test frontend-check workers-up workers-inspect
 
 up:
 	docker compose up -d --build
@@ -20,11 +20,25 @@ compose-check:
 	docker compose -f docker-compose.yml -f docker-compose.e2e.yml config --quiet
 
 backend-test:
-	docker compose run --rm backend pytest
+	docker compose run --rm backend pytest -m "not integration" -q
 
 backend-check:
 	docker compose run --rm backend ruff check .
+	docker compose run --rm backend ruff format --check .
 	docker compose run --rm backend python manage.py check
+	docker compose run --rm backend python manage.py makemigrations --check --dry-run
+
+frontend-test:
+	docker compose run --rm frontend npm run test:run
+
+frontend-install:
+	docker compose build frontend
+	docker compose run --rm frontend npm ci
+
+frontend-check:
+	docker compose run --rm frontend npm run lint
+	docker compose run --rm frontend npm run typecheck
+	docker compose run --rm frontend npm run build
 
 workers-up:
 	docker compose build backend
