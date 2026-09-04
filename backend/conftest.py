@@ -1,4 +1,5 @@
 import os
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import boto3
@@ -147,3 +148,52 @@ def source_run(alanya_campaign, osm_source):
         campaign=alanya_campaign,
         source=osm_source,
     )[0]
+
+
+@pytest.fixture
+def payload():
+    from apps.sources.domain import SourcePayload, SourceProvenance
+
+    return SourcePayload(
+        external_id="node/42",
+        payload={"id": 42, "name": "Alanya Diş", "tags": {"amenity": "dentist"}},
+        fetched_at=datetime(2026, 9, 4, 9, 30, tzinfo=UTC),
+        provenance=SourceProvenance(
+            dataset_version="fixture-2026-09",
+            source_url="https://www.openstreetmap.org/node/42",
+            attribution="© OpenStreetMap contributors",
+            license_code="ODbL-1.0",
+        ),
+    )
+
+
+@pytest.fixture
+def parsed():
+    from apps.sources.domain import RawBusinessRecord
+
+    return RawBusinessRecord(
+        external_id="node/42",
+        raw_name="Alanya Diş",
+        raw_category="dentist",
+        raw_address="Saray, Alanya",
+        raw_phones=("+90 242 555 0101",),
+        raw_emails=("info@example.test",),
+        raw_websites=("https://example.test",),
+        raw_social_urls={"instagram": ("https://instagram.com/example",)},
+        longitude=32.0,
+        latitude=36.55,
+    )
+
+
+@pytest.fixture
+def store():
+    from apps.sources.tests.fakes import InMemoryRawPayloadStore
+
+    return InMemoryRawPayloadStore()
+
+
+@pytest.fixture
+def thread_safe_store():
+    from apps.sources.tests.fakes import InMemoryRawPayloadStore
+
+    return InMemoryRawPayloadStore()

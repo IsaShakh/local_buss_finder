@@ -1,7 +1,9 @@
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
+from django.contrib.gis.db import models as gis_models
+from django.contrib.postgres.indexes import GistIndex
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -85,3 +87,121 @@ class Source(TimestampedUUIDModel):
                     ]
                 }
             )
+
+
+class SourceRecord(TimestampedUUIDModel):
+    class NormalizationStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        NORMALIZED = "normalized", "Normalized"
+        REJECTED = "rejected", "Rejected"
+        FAILED = "failed", "Failed"
+
+    campaign = models.ForeignKey(
+        "campaigns.DiscoveryCampaign",
+        on_delete=models.CASCADE,
+        related_name="source_records",
+    )
+    source_run = models.ForeignKey(
+        "campaigns.CampaignSourceRun",
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
+    source = models.ForeignKey(
+        Source,
+        on_delete=models.PROTECT,
+        related_name="source_records",
+    )
+    external_id = models.CharField(max_length=512)
+    source_dataset_version = models.CharField(max_length=255)
+    source_url = models.TextField(null=True, blank=True)
+    attribution = models.TextField()
+    license_code = models.CharField(max_length=255)
+    raw_name = models.TextField(null=True, blank=True)
+    raw_category = models.TextField(null=True, blank=True)
+    raw_address = models.TextField(null=True, blank=True)
+    raw_phones = models.JSONField(default=list, blank=True)
+    raw_emails = models.JSONField(default=list, blank=True)
+    raw_websites = models.JSONField(default=list, blank=True)
+    raw_social_urls = models.JSONField(default=dict, blank=True)
+    raw_location = gis_models.PointField(srid=4326, null=True, blank=True)
+    raw_payload_key = models.TextField()
+    raw_payload_sha256 = models.CharField(max_length=64)
+    raw_payload_bytes = models.PositiveBigIntegerField()
+    payload_schema_version = models.CharField(max_length=32)
+    checksum = models.CharField(max_length=64)
+    normalization_status = models.CharField(
+        max_length=16,
+        choices=NormalizationStatus.choices,
+        default=NormalizationStatus.PENDING,
+    )
+    normalization_retry_count = models.PositiveSmallIntegerField(default=0)
+    normalization_error_code = models.CharField(max_length=64, null=True, blank=True)
+    parser_error_code = models.CharField(max_length=64, null=True, blank=True)
+    fetched_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ("-fetched_at", "-id")
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=("campaign", "source", "external_id"),
+                name="uniq_campaign_source_external",
+            )
+        ]
+        indexes: ClassVar = [
+            models.Index(
+                fields=("campaign", "normalization_status"),
+                name="src_rec_campaign_status",
+            ),
+            models.Index(
+                fields=("source", "external_id"),
+                name="src_rec_source_external",
+            ),
+            models.Index(fields=("fetched_at",), name="src_rec_fetched_at"),
+            GistIndex(fields=("raw_location",), name="src_rec_location_gist"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.source.code}: {self.external_id}"
+
+
+class SourceRecordConflict(TimestampedUUIDModel):
+    campaign = models.ForeignKey(
+        "campaigns.DiscoveryCampaign",
+        on_delete=models.CASCADE,
+        related_name="source_record_conflicts",
+    )
+    source_run = models.ForeignKey(
+        "campaigns.CampaignSourceRun",
+        on_delete=models.CASCADE,
+        related_name="record_conflicts",
+    )
+    source = models.ForeignKey(
+        Source,
+        on_delete=models.PROTECT,
+        related_name="source_record_conflicts",
+    )
+    external_id = models.CharField(max_length=512)
+    original_source_record = models.ForeignKey(
+        SourceRecord,
+        on_delete=models.CASCADE,
+        related_name="conflicts",
+    )
+    conflicting_payload_sha256 = models.CharField(max_length=64)
+    raw_payload_key = models.TextField()
+    raw_payload_bytes = models.PositiveBigIntegerField()
+    payload_schema_version = models.CharField(max_length=32)
+    source_dataset_version = models.CharField(max_length=255)
+    error_code = models.CharField(max_length=64, default="SOURCE_RECORD_CONFLICT")
+    counted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at", "id")
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=("campaign", "source", "external_id", "conflicting_payload_sha256"),
+                name="uniq_campaign_source_external_conflict_sha",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.source.code}: {self.external_id} conflict"

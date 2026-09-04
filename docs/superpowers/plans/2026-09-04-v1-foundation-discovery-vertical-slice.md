@@ -2501,7 +2501,7 @@ def persist_source_payload(
 ) -> PersistedSourceRecord: ...
 ```
 
-- [ ] **Step 1: Написать failing idempotency/conflict tests**
+- [x] **Step 1: Написать failing idempotency/conflict tests**
 
 ```python
 @pytest.mark.django_db
@@ -2624,7 +2624,7 @@ class InMemoryRawPayloadStore:
 
 `backend/conftest.py` добавляет `payload`, `parsed`, `store` и `thread_safe_store` ровно по §1.1. Оба store fixtures возвращают новый `InMemoryRawPayloadStore`; отдельные имена подчёркивают, что concurrency test обязан использовать его lock-safe implementation.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/sources/tests/test_source_record_model.py apps/sources/tests/test_persist_source_payload.py -q
@@ -2632,13 +2632,13 @@ docker compose run --rm backend pytest apps/sources/tests/test_source_record_mod
 
 Expected: FAIL с отсутствующим model/service.
 
-- [ ] **Step 3: Реализовать SourceRecord schema**
+- [x] **Step 3: Реализовать SourceRecord schema**
 
 `SourceRecord` содержит все поля design spec. `source_run` использует `related_name="records"`. Scalar raw fields (`raw_name`, `raw_category`, `raw_address`, `raw_location`) nullable; `raw_phones`, `raw_emails`, `raw_websites` default to `[]`, а `raw_social_urls` — к `{}`. `normalization_retry_count = PositiveSmallIntegerField(default=0)` хранит число атомарно выданных business retry reservations для transient raw-read/storage ошибок именно этой записи. Если provider payload сохранён, но parser поднял `SourcePayloadParseError`, row всё равно создаётся с пустыми raw contact collections, `normalization_status="failed"` и `normalization_error_code=error.code`. `raw_payload_bytes` всегда равен `StoredPayload.size_bytes` (размер gzip object), не размеру canonical JSON.
 
 Constraints: `UniqueConstraint(fields=["campaign", "source", "external_id"], name="uniq_campaign_source_external")`; indexes `(campaign, normalization_status)`, `(source, external_id)`, `fetched_at`, GiST `raw_location`. В той же migration создать `SourceRecordConflict` с полями `campaign`, `source_run`, `source`, `external_id`, `original_source_record`, `conflicting_payload_sha256`, `raw_payload_key`, `raw_payload_bytes`, `payload_schema_version`, `source_dataset_version`, `error_code="SOURCE_RECORD_CONFLICT"`, nullable `counted_at`, timestamps и `UniqueConstraint(fields=["campaign", "source", "external_id", "conflicting_payload_sha256"], name="uniq_campaign_source_external_conflict_sha")`. Conflict row — durable provenance попытки с другим payload; он никогда не изменяет исходный `SourceRecord` или его raw object.
 
-- [ ] **Step 4: Реализовать transaction boundary**
+- [x] **Step 4: Реализовать transaction boundary**
 
 Алгоритм:
 
@@ -2652,7 +2652,7 @@ Constraints: `UniqueConstraint(fields=["campaign", "source", "external_id"], nam
 
 Глобальной транзакции S3+PostgreSQL нет; deterministic key позволяет retry использовать тот же object. Lock на source run сериализует два concurrent inserts для одного run, а оба unique constraints остаются final DB guard. Новый conflict увеличивает и `stored_records`, и `failed_records`, поэтому invariant `normalized + rejected + failed == stored` сохраняется; загруженный conflicting object удерживается как evidence и достижим через `SourceRecordConflict`.
 
-- [ ] **Step 5: Проверить GREEN и database constraints**
+- [x] **Step 5: Проверить GREEN и database constraints**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -2662,7 +2662,7 @@ docker compose run --rm backend python manage.py makemigrations --check --dry-ru
 
 Expected: PASS; concurrent regression above creates exactly one complete parsed row and increments counters once; повтор parser failure остаётся одной complete failed row и `failed_records == 1`; crash point между object put и DB transaction безопасно повторяется.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/sources
