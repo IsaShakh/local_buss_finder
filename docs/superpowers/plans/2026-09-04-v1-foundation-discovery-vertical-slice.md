@@ -1350,7 +1350,7 @@ class ApiException(APIException):
     ) -> None: ...
 ```
 
-- [ ] **Step 1: Написать failing API tests**
+- [x] **Step 1: Написать failing API tests**
 
 ```python
 # backend/apps/system/tests/test_auth_api.py
@@ -1423,7 +1423,9 @@ def test_login_requires_csrf_cookie_and_matching_header():
     assert accepted.status_code == 200
 ```
 
-- [ ] **Step 2: Запустить RED**
+Дополнительные tests фиксируют `POST /auth/logout/` → `204` с очисткой session, обязательный CSRF для authenticated logout, единый envelope для serializer validation/405 и одинаковое отображение DRF/Django вариантов `NotFound`/`PermissionDenied`.
+
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/system/tests/test_auth_api.py apps/system/tests/test_api_errors.py -q
@@ -1431,7 +1433,7 @@ docker compose run --rm backend pytest apps/system/tests/test_auth_api.py apps/s
 
 Expected: FAIL с 404 и отсутствующим custom exception handler.
 
-- [ ] **Step 3: Реализовать views и exception handler**
+- [x] **Step 3: Реализовать views и exception handler**
 
 Поведение:
 
@@ -1458,9 +1460,9 @@ class LoginView(APIView):
         return Response(serialize_user(user))
 ```
 
-Импортировать `csrf_protect` из `django.views.decorators.csrf`. `LoginView.dispatch` обёрнут `csrf_protect`, потому что DRF `SessionAuthentication` не применяет CSRF к anonymous login самостоятельно. Logout вызывает Django `logout()` и возвращает 204. `SessionView` использует `IsAuthenticated`. Exception handler преобразует DRF auth/validation errors в единый envelope и не меняет HTTP semantics.
+Импортировать `csrf_protect` из `django.views.decorators.csrf`. `LoginView.dispatch` обёрнут `csrf_protect`, потому что DRF `SessionAuthentication` не применяет CSRF к anonymous login самостоятельно. Logout вызывает Django `logout()` и возвращает 204. `SessionView` использует `IsAuthenticated`. Exception handler преобразует DRF auth/validation errors в единый envelope, одинаково классифицирует Django и DRF `Http404`/`PermissionDenied` и не меняет HTTP semantics.
 
-- [ ] **Step 4: Зафиксировать cookie/CSRF settings**
+- [x] **Step 4: Зафиксировать cookie/CSRF settings**
 
 В `base.py` добавить `"corsheaders"` в `INSTALLED_APPS` и `"corsheaders.middleware.CorsMiddleware"` в `MIDDLEWARE` непосредственно перед `"django.middleware.common.CommonMiddleware"`; без middleware значения `CORS_*` не применяются.
 
@@ -1476,7 +1478,7 @@ CSRF_TRUSTED_ORIGINS = ["http://localhost:5173", "http://localhost:8080"]
 
 В `production.py` установить `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`, `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE="Lax"`, `CSRF_COOKIE_SAMESITE="Lax"`, `CORS_ALLOW_CREDENTIALS=True`; `CORS_ALLOWED_ORIGINS=env.list("DJANGO_CORS_ALLOWED_ORIGINS")` и `CSRF_TRUSTED_ORIGINS=env.list("DJANGO_CSRF_TRUSTED_ORIGINS")`. Не включать `CORS_ALLOW_ALL_ORIGINS`.
 
-- [ ] **Step 5: Проверить GREEN и CSRF integration**
+- [x] **Step 5: Проверить GREEN и CSRF integration**
 
 ```bash
 docker compose run --rm backend pytest apps/system/tests/test_auth_api.py apps/system/tests/test_api_errors.py -q
@@ -1486,7 +1488,7 @@ docker compose run --rm backend ruff check apps/system config
 
 Expected: all PASS/exit 0; тест выше фиксирует login без CSRF → 403 и login после `GET /csrf/` с matching header → 200.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/system backend/config/settings
