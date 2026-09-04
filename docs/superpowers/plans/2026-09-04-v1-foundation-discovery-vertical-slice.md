@@ -2106,7 +2106,7 @@ class CampaignValidationError(Exception):
     ) -> None: ...
 ```
 
-- [ ] **Step 1: Написать failing state/model tests**
+- [x] **Step 1: Написать failing state/model tests**
 
 ```python
 @pytest.mark.django_db
@@ -2193,7 +2193,7 @@ def test_campaign_through_rows_are_unique(alanya_campaign, osm_source, dentist_c
 
 Импорты: `IntegrityError, transaction` из `django.db`. В Task 10 добавить в `backend/conftest.py` fixtures `other_owner`, `active_source_without_mappings`, `alanya_campaign` и `source_run` по seed rules из §1.1.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/campaigns/tests -q
@@ -2201,17 +2201,17 @@ docker compose run --rm backend pytest apps/campaigns/tests -q
 
 Expected: FAIL с отсутствующим app/models.
 
-- [ ] **Step 3: Реализовать models и constraints**
+- [x] **Step 3: Реализовать models и constraints**
 
 `DiscoveryCampaign.Status`: `draft`, `queued`, `running`, `completed`, `completed_with_errors`, `failed`. `CampaignSourceRun.Status`: `pending`, `running`, `normalizing`, `completed`, `completed_with_errors`, `failed`. Все record/job counters — `PositiveBigIntegerField(default=0)`; `request_count` также non-negative, а `source_retry_count` — `PositiveSmallIntegerField(default=0)` и хранит число атомарно выданных business retry reservations для transient provider/raw-write ошибок этого source run. `cost` — `DecimalField(max_digits=12, decimal_places=4, default=0)`, version/error/timestamps nullable до соответствующего transition. `CampaignSource` и `CampaignCategory` — explicit through models с `UniqueConstraint`. `CampaignSourceRun.campaign` использует `related_name="source_runs"`; run unique `(campaign, source)` для этого slice.
 
 `CampaignSource` defaults: `is_enabled=True`, `priority=100`, `request_limit=None`, `budget_limit=None`. Free sources reject non-zero budget in validation.
 
-- [ ] **Step 4: Реализовать create/list/detail API**
+- [x] **Step 4: Реализовать create/list/detail API**
 
 `POST /api/v1/campaigns/` принимает exact request из spec. Serializer валидирует UUIDs одной bulk query на model, передаёт immutable command service и возвращает 201. Для каждого выбранного source service вызывает `resolve_external_categories`; пустой итог отклоняет весь request с code `SOURCE_HAS_NO_ACTIVE_MAPPINGS` и `fields.source_ids`, поэтому unbounded provider query невозможен. List/detail фильтруются `created_by=request.user`; никаких organization/workspace fields.
 
-- [ ] **Step 5: Проверить GREEN и query count**
+- [x] **Step 5: Проверить GREEN и query count**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -2222,7 +2222,7 @@ docker compose run --rm backend ruff check apps/campaigns
 
 Expected: PASS. List serializer prefetches sources/categories и не создаёт N+1; закрепить query-count test на 10 campaigns.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/campaigns backend/config
