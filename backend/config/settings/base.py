@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "apps.geography.apps.GeographyConfig",
+    "apps.sources.apps.SourcesConfig",
     "apps.system.apps.SystemConfig",
 ]
 

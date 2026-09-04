@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from rest_framework.test import APIClient
 
 
@@ -22,3 +23,19 @@ def auth_client(owner) -> APIClient:
     client = APIClient()
     client.force_authenticate(owner)
     return client
+
+
+@pytest.fixture
+def overture_source(db):
+    from apps.sources.models import Source
+
+    call_command("seed_sources")
+    return Source.objects.get(code="overture")
+
+
+@pytest.fixture
+def osm_source(db):
+    from apps.sources.models import Source
+
+    call_command("seed_sources")
+    return Source.objects.get(code="osm")

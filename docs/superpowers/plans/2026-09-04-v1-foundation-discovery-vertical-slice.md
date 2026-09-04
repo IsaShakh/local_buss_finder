@@ -1832,7 +1832,7 @@ git commit -m "feat: add geographic hierarchy and Alanya search area"
 - Consumes: common UUID model; authenticated API.
 - Produces: `Source(code="overture"|"osm")`; `GET /sources/`.
 
-- [ ] **Step 1: Написать failing Source tests**
+- [x] **Step 1: Написать failing Source tests**
 
 ```python
 @pytest.mark.django_db
@@ -1895,7 +1895,7 @@ def test_source_api_requires_auth_and_exposes_only_public_configuration(
 
 В этом Task добавить в `backend/conftest.py` fixtures `overture_source` и `osm_source` из §1.1; каждый сначала вызывает `seed_sources`, поэтому API test использует production seed, а не случайные defaults.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/sources/tests/test_source_model.py apps/sources/tests/test_source_api.py -q
@@ -1903,11 +1903,11 @@ docker compose run --rm backend pytest apps/sources/tests/test_source_model.py a
 
 Expected: FAIL с отсутствующим `Source`.
 
-- [ ] **Step 3: Реализовать model/serializer/API**
+- [x] **Step 3: Реализовать model/serializer/API**
 
 `Source` fields соответствуют spec, включая обязательные `attribution` и `license_code`. `clean()` рекурсивно запрещает JSON keys, чьё lowercase имя содержит `secret`, `token`, `password`, `api_key`, в `settings`. Serializer read-only и отдаёт operational limits, attribution и license metadata, но не environment values.
 
-- [ ] **Step 4: Реализовать идемпотентный seed**
+- [x] **Step 4: Реализовать идемпотентный seed**
 
 ```text
 overture: Overture Maps, open_data, CDLA-Permissive-2.0/Apache-2.0, active
@@ -1916,7 +1916,7 @@ osm: OpenStreetMap, open_data, ODbL-1.0, active, concurrency=1
 
 `seed_sources` обновляет display metadata/limits по `code`, не меняет вручную установленный `is_active` без `--reset-active`.
 
-- [ ] **Step 5: Проверить GREEN**
+- [x] **Step 5: Проверить GREEN**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -1927,7 +1927,7 @@ docker compose run --rm backend python manage.py makemigrations --check --dry-ru
 
 Expected: PASS, два source rows, no pending migrations.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/sources backend/config
