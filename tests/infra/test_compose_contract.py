@@ -23,7 +23,7 @@ class ComposeContractTest(unittest.TestCase):
     def test_stateful_services_are_declared(self) -> None:
         services = self.load_config()["services"]
 
-        self.assertEqual({"garage", "postgres", "redis"}, set(services))
+        self.assertTrue({"garage", "postgres", "redis"}.issubset(services))
 
     def test_postgis_uses_the_project_multi_arch_image(self) -> None:
         postgres = self.load_config()["services"]["postgres"]
@@ -48,6 +48,12 @@ class ComposeContractTest(unittest.TestCase):
         self.assertEqual("redis://redis:6379/0", environment["CELERY_BROKER_URL"])
         self.assertEqual("true", environment.get("CELERY_TASK_IGNORE_RESULT"))
         self.assertNotIn("CELERY_RESULT_BACKEND", environment)
+
+    def test_development_lock_pins_build_tool_dependencies(self) -> None:
+        development_lock = Path("backend/requirements/development.txt").read_text()
+
+        self.assertIn("pip==", development_lock)
+        self.assertIn("setuptools==", development_lock)
 
     def test_stateful_ports_are_bound_only_to_loopback(self) -> None:
         services = self.load_config()["services"]

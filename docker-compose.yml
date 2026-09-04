@@ -25,6 +25,28 @@ x-backend-depends-on: &backend-depends-on
   garage: {condition: service_healthy}
 
 services:
+  backend:
+    build:
+      context: ./backend
+      target: development
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2
+    environment: *backend-environment
+    depends_on: *backend-depends-on
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live/', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [app]
+
   postgres:
     build:
       context: ./infrastructure/postgres

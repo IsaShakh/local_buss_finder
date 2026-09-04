@@ -1,0 +1,9 @@
+-r base.in
+pytest==9.1.1
+pytest-django==4.14.0
+pytest-cov==7.1.0
+ruff==0.16.6
+pip-tools==7.6.1
+respx==0.23.1
+moto[s3]==5.2.3
+freezegun==1.5.5

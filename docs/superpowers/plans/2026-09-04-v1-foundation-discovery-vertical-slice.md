@@ -20,6 +20,7 @@
 - application boundary остаётся provider-neutral через `S3_*` settings и boto3;
 - production не использует bundled Garage автоматически: production S3 provider выбирается отдельно;
 - Redis не хранит Celery task results; `CELERY_TASK_IGNORE_RESULT=True`, а продуктовый progress хранится только в PostgreSQL;
+- development requirements lock компилируется с `--allow-unsafe --strip-extras`, чтобы transitive зависимости `pip-tools` (`pip`, `setuptools`) тоже имели exact versions и hashes и принимались `pip install --require-hashes`;
 - корректный RED — запустившийся test с ожидаемым assertion failure. `ModuleNotFoundError`, `KeyError` и другие ошибки test harness сначала исправляются и не считаются подтверждённым RED;
 - Task 1 использует services `postgres`, `redis`, `garage`, volumes `postgres_data`, `redis_data`, `garage_meta`, `garage_data` и `infrastructure/garage/garage.toml`; отдельные `minio-ready`/`minio-init` не создаются.
 
@@ -513,7 +514,7 @@ git commit -m "chore: initialize local business intelligence foundation"
 - Consumes: `DATABASE_URL`, `REDIS_URL`, `S3_*`, stateful Compose services.
 - Produces: `GET /api/v1/health/live/ -> {"status":"ok"}`; `GET /api/v1/health/ready/ -> 200|503` with `database`, `redis`, `object_storage`; abstract `TimestampedUUIDModel`.
 
-- [ ] **Step 1: Создать только dependency/test harness**
+- [x] **Step 1: Создать только dependency/test harness**
 
 `backend/requirements/base.in`:
 
@@ -547,14 +548,14 @@ freezegun==1.5.5
 ```bash
 docker run --rm -v "$PWD/backend:/app" -w /app python:3.13-slim \
   sh -ec "pip install pip-tools==7.6.1 && \
-    pip-compile --generate-hashes --resolver=backtracking --output-file requirements/base.txt requirements/base.in && \
-    pip-compile --generate-hashes --resolver=backtracking --output-file requirements/development.txt requirements/development.in && \
-    pip-compile --generate-hashes --resolver=backtracking --output-file requirements/production.txt requirements/production.in"
+    pip-compile --allow-unsafe --strip-extras --generate-hashes --resolver=backtracking --output-file requirements/base.txt requirements/base.in && \
+    pip-compile --allow-unsafe --strip-extras --generate-hashes --resolver=backtracking --output-file requirements/development.txt requirements/development.in && \
+    pip-compile --allow-unsafe --strip-extras --generate-hashes --resolver=backtracking --output-file requirements/production.txt requirements/production.in"
 ```
 
 Каждый следующий Task, который меняет любой `.in`, повторяет все три `pip-compile` commands из этого шага; CI отклоняет diff, где `.in` изменился без соответствующего `.txt`.
 
-`backend/pyproject.toml` sets pytest `addopts = ["--ds=config.settings.testing"]` (CLI option намеренно имеет приоритет над Compose `DJANGO_SETTINGS_MODULE=config.settings.development`), `python_files = ["test_*.py"]`, marker `integration = "requires isolated real Redis/MinIO/PostGIS"`, Ruff target `py313`, line length `100`. Regression test asserts `os.environ["DJANGO_SETTINGS_MODULE"] == "config.settings.testing"`, чтобы tests никогда не использовали development/production config случайно.
+`backend/pyproject.toml` sets pytest `addopts = ["--ds=config.settings.testing"]` (CLI option намеренно имеет приоритет над Compose `DJANGO_SETTINGS_MODULE=config.settings.development`), `python_files = ["test_*.py"]`, marker `integration = "requires isolated real Redis/Garage/PostGIS"`, Ruff target `py313`, line length `100`. Regression test asserts `os.environ["DJANGO_SETTINGS_MODULE"] == "config.settings.testing"`, чтобы tests никогда не использовали development/production config случайно.
 
 Создать test harness image до первого RED. `backend/Dockerfile`:
 
@@ -610,7 +611,7 @@ CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers
     networks: [app]
 ```
 
-- [ ] **Step 2: Написать failing health tests**
+- [x] **Step 2: Написать failing health tests**
 
 ```python
 # backend/apps/system/tests/test_health_api.py
@@ -653,7 +654,7 @@ def test_ready_health_returns_503_without_exception_details(api_client, monkeypa
 
 Добавить первые `api_client`, `owner` и `auth_client` fixtures из §1.1 в `backend/conftest.py`.
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 Run:
 
@@ -662,9 +663,9 @@ docker compose build backend
 docker compose run --rm backend pytest apps/system/tests/test_health_api.py -q
 ```
 
-Expected: FAIL с `ModuleNotFoundError`/404, потому что project URL и views ещё отсутствуют.
+Expected: три assertion failures `404`, потому что health URLs ещё отсутствуют; imports и test harness при этом исправны.
 
-- [ ] **Step 4: Реализовать settings, URL namespace и health behavior**
+- [x] **Step 4: Реализовать settings, URL namespace и health behavior**
 
 `base.py` использует:
 
@@ -705,7 +706,7 @@ class TimestampedUUIDModel(models.Model):
         abstract = True
 ```
 
-- [ ] **Step 5: Проверить GREEN на development image**
+- [x] **Step 5: Проверить GREEN на development image**
 
 Backend service уже создан как test harness в Step 1; после реализации URL он должен пройти healthcheck без изменения container contract.
 
@@ -719,7 +720,7 @@ docker compose run --rm backend python manage.py check
 
 Expected: tests PASS, Ruff exit 0, Django system check reports no issues.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend docker-compose.yml Makefile
