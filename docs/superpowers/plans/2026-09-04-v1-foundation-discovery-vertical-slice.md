@@ -1532,7 +1532,7 @@ export async function login(input: { username: string; password: string }): Prom
 export async function logout(): Promise<void>;
 ```
 
-- [ ] **Step 1: Написать failing behavior tests**
+- [x] **Step 1: Написать failing behavior tests**
 
 Сначала создать MSW server/default handlers как test harness и заменить `frontend/src/test/setup.ts` на exact lifecycle; это test infrastructure, а не product behavior:
 
@@ -1585,7 +1585,7 @@ it('защищает корневой route и показывает shell тол
 });
 ```
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 cd frontend
@@ -1594,11 +1594,11 @@ npm run test:run -- src/features/auth/LoginPage.test.tsx
 
 Expected: FAIL, потому что routes/provider/pages отсутствуют.
 
-- [ ] **Step 3: Реализовать credentialed API client с CSRF**
+- [x] **Step 3: Реализовать credentialed API client с CSRF**
 
 `request<T>()` всегда передаёт `credentials: 'include'`. Перед первым unsafe request client делает `GET /api/v1/auth/csrf/`, читает `csrftoken` из cookie и устанавливает `X-CSRFToken`. Non-2xx body преобразуется в `ApiClientError` с `code`, `detail`, `fields`; UI не показывает stack trace.
 
-- [ ] **Step 4: Реализовать AuthProvider, routes и форму**
+- [x] **Step 4: Реализовать AuthProvider, routes и форму**
 
 `AuthProvider` различает `loading | anonymous | authenticated`; `ProtectedRoute` во время loading показывает «Проверяем сессию…», затем redirect `/login` либо child route. Форма использует Zod:
 
@@ -1611,7 +1611,7 @@ const loginSchema = z.object({
 
 `AppShell` содержит только доступные в slice ссылки. Не показывать «Дедупликация», «Аудит», «Возможности».
 
-- [ ] **Step 5: Проверить GREEN и accessibility basics**
+- [x] **Step 5: Проверить GREEN и accessibility basics**
 
 ```bash
 cd frontend
@@ -1622,7 +1622,7 @@ npm run typecheck
 
 Expected: tests PASS; labels связаны с inputs; submit доступен по role/name; logout очищает session и возвращает `/login`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src

@@ -1,7 +1,5 @@
+import { AppRouter } from './router';
+
 export function App() {
-  return (
-    <main>
-      <h1>Локальные бизнесы</h1>
-    </main>
-  );
+  return <AppRouter />;
 }

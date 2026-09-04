@@ -1,12 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { App } from './App';
+import { renderApp } from '../test/render';
 
 describe('App', () => {
-  it('показывает русское название продукта', () => {
-    render(<App />);
+  it('показывает русское название продукта на странице входа', async () => {
+    renderApp('/login');
 
-    expect(screen.getByRole('heading', { name: 'Локальные бизнесы' })).toBeInTheDocument();
+    expect(await screen.findByText('Локальные бизнесы')).toBeInTheDocument();
   });
 });
