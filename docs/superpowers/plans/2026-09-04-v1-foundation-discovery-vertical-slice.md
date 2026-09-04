@@ -2277,7 +2277,7 @@ class RawStorageUnavailable(Exception):
     code = "RAW_STORAGE_UNAVAILABLE"
 ```
 
-- [ ] **Step 1: Написать failing deterministic serialization test**
+- [x] **Step 1: Написать failing deterministic serialization test**
 
 ```python
 def test_equivalent_json_produces_same_content_addressed_key(fake_s3_client):
@@ -2361,7 +2361,7 @@ def test_equal_payload_for_different_external_ids_has_distinct_metadata(fake_s3_
 
 Integration module задаёт `pytestmark = pytest.mark.integration`. Root fixture `minio_store` в `backend/conftest.py` сначала требует `STORAGE_INTEGRATION_PROJECT == "1"` (иначе immediately fails), затем читает `S3_*` settings активного изолированного Compose project, создаёт bucket `lbi-storage-test-{uuid4().hex}`, yields `S3RawPayloadStore`, а в `finally` удаляет objects и только этот bucket. Она никогда не использует development bucket. Sibling `backend/apps/sources/tests/conftest.py` содержит только unit `fake_s3_client`.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/sources/tests/test_raw_payload_storage.py -q
@@ -2369,7 +2369,7 @@ docker compose run --rm backend pytest apps/sources/tests/test_raw_payload_stora
 
 Expected: FAIL с отсутствующим `storage` package.
 
-- [ ] **Step 3: Реализовать canonical JSON и S3 store**
+- [x] **Step 3: Реализовать canonical JSON и S3 store**
 
 ```python
 def canonical_json_bytes(payload: dict[str, JSONValue]) -> bytes:
@@ -2384,7 +2384,7 @@ def canonical_json_bytes(payload: dict[str, JSONValue]) -> bytes:
 
 `payload_sha256` считается по этим bytes; `external_id_sha256` — по `external_id.encode("utf-8")`; gzip создаётся `gzip.compress(data, mtime=0)`. Key строго `raw/{source_code}/{campaign_id}/{external_id_sha256}/{payload_sha256}.json.gz`. `put_object` задаёт `ContentType="application/json"`, `ContentEncoding="gzip"` и ровно metadata `source-code`, `campaign-id`, `external-id`, `sha256`, `payload-schema-version`, `source-dataset-version`; service обязан передать последние два, store вычисляет/добавляет первые четыре. Повтор того же key разрешён и возвращает тот же result. `S3RawPayloadStore` переводит timeout, connection failure, throttling и retryable S3 `5xx` в provider-neutral `RawStorageUnavailable`; permanent auth/configuration errors не маскирует этим типом.
 
-- [ ] **Step 4: Запустить unit GREEN**
+- [x] **Step 4: Запустить unit GREEN**
 
 ```bash
 docker compose run --rm backend pytest apps/sources/tests/test_raw_payload_storage.py -q
@@ -2392,7 +2392,7 @@ docker compose run --rm backend pytest apps/sources/tests/test_raw_payload_stora
 
 Expected: PASS.
 
-- [ ] **Step 5: Запустить реальный MinIO integration test**
+- [x] **Step 5: Запустить реальный MinIO integration test**
 
 Integration test создаёт уникальный bucket, делает put/get/head, проверяет metadata и удаляет только свой bucket в fixture teardown. Зафиксировать отдельный Compose project, отдельные volumes/network, отсутствие host ports и unconditional cleanup в `Makefile`:
 
@@ -2414,7 +2414,7 @@ make storage-integration
 
 Expected: PASS; downloaded JSON полностью равен исходному payload; trap удаляет только `local-business-intelligence-storage-test` volumes. Запрещено заменять этот command обычным `docker compose ...`, потому что он мог бы обратиться к development MinIO.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/common backend/apps/sources/storage backend/apps/sources/tests backend/config/settings backend/conftest.py Makefile

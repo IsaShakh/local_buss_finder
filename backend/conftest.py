@@ -1,7 +1,48 @@
+import os
+from uuid import uuid4
+
+import boto3
 import pytest
+from botocore.config import Config
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from rest_framework.test import APIClient
+
+
+@pytest.fixture
+def minio_store():
+    if os.environ.get("STORAGE_INTEGRATION_PROJECT") != "1":
+        pytest.fail("storage integration tests require the isolated Compose project")
+
+    from apps.sources.storage import S3RawPayloadStore
+
+    addressing_style = "path" if settings.S3_FORCE_PATH_STYLE else "auto"
+    client = boto3.client(
+        "s3",
+        endpoint_url=settings.S3_ENDPOINT_URL,
+        aws_access_key_id=settings.S3_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+        region_name=settings.S3_REGION_NAME,
+        config=Config(s3={"addressing_style": addressing_style}),
+    )
+    bucket = f"lbi-storage-test-{uuid4().hex}"
+    bucket_created = False
+    try:
+        client.create_bucket(Bucket=bucket)
+        bucket_created = True
+        yield S3RawPayloadStore(client=client, bucket=bucket)
+    finally:
+        if bucket_created:
+            while True:
+                objects = client.list_objects_v2(Bucket=bucket).get("Contents", [])
+                if not objects:
+                    break
+                client.delete_objects(
+                    Bucket=bucket,
+                    Delete={"Objects": [{"Key": item["Key"]} for item in objects]},
+                )
+            client.delete_bucket(Bucket=bucket)
 
 
 @pytest.fixture
