@@ -4,7 +4,8 @@ from dataclasses import replace
 import pytest
 from django.db import close_old_connections
 
-from apps.sources.domain import SourcePayloadParseError, SourceRecordConflictError
+from apps.discovery.errors import InvalidSourcePayload
+from apps.sources.domain import SourceRecordConflictError
 from apps.sources.models import SourceRecord, SourceRecordConflict
 from apps.sources.services import persist_source_payload
 
@@ -110,7 +111,7 @@ def test_raw_object_is_stored_before_parser_failure_and_failed_counter_is_once_o
 ):
     def failing_parser(_):
         assert store.object_count == 1
-        raise SourcePayloadParseError("INVALID_SOURCE_PAYLOAD")
+        raise InvalidSourcePayload("fixture parser rejected payload")
 
     first = persist_source_payload(
         source_run=source_run,

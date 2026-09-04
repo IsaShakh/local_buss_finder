@@ -152,7 +152,7 @@ def source_run(alanya_campaign, osm_source):
 
 @pytest.fixture
 def payload():
-    from apps.sources.domain import SourcePayload, SourceProvenance
+    from apps.discovery.domain import SourcePayload, SourceProvenance
 
     return SourcePayload(
         external_id="node/42",
@@ -169,7 +169,7 @@ def payload():
 
 @pytest.fixture
 def parsed():
-    from apps.sources.domain import RawBusinessRecord
+    from apps.discovery.domain import RawBusinessRecord
 
     return RawBusinessRecord(
         external_id="node/42",

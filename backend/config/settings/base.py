@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "apps.campaigns.apps.CampaignsConfig",
+    "apps.discovery.apps.DiscoveryConfig",
     "apps.geography.apps.GeographyConfig",
     "apps.sources.apps.SourcesConfig",
     "apps.system.apps.SystemConfig",
@@ -69,6 +70,8 @@ CELERY_TASK_PUBLISH_RETRY_POLICY = {
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
 CELERY_TASK_IGNORE_RESULT = env.bool("CELERY_TASK_IGNORE_RESULT", default=True)
 CELERY_RESULT_BACKEND = None
+
+DISCOVERY_ADAPTERS = {}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

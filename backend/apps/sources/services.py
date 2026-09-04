@@ -6,12 +6,11 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+from apps.discovery.domain import RawBusinessRecord, SourcePayload
+from apps.discovery.errors import InvalidSourcePayload
 
 from .domain import (
     PersistedSourceRecord,
-    RawBusinessRecord,
-    SourcePayload,
-    SourcePayloadParseError,
     SourceRecordConflictError,
 )
 from .models import SourceRecord, SourceRecordConflict
@@ -27,8 +26,8 @@ def _parse_source_payload(
     try:
         parsed = parse_payload(source_payload)
         if parsed.external_id != source_payload.external_id:
-            raise SourcePayloadParseError("INVALID_SOURCE_PAYLOAD")
-    except SourcePayloadParseError as error:
+            raise InvalidSourcePayload("parsed external_id does not match payload")
+    except InvalidSourcePayload as error:
         return None, error.code
     return parsed, None
 

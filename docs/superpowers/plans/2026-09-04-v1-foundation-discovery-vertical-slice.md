@@ -2796,7 +2796,7 @@ class UnknownDiscoveryAdapter(PermanentSourceError):
 
 `BoundingBox.__post_init__` must reject non-WGS84 coordinates, `west >= east` and `south >= north`; `DiscoveryRequest.__post_init__` rejects empty `dataset_version`, empty `correlation_id`, empty `external_categories`, and `result_limit <= 0`. Empty internal `category_ids` has already been expanded per source before this boundary, so an adapter can never interpret an empty tuple as an unbounded query. `DiscoveryAdapter.discover()` performs only provider I/O; persistence, normalization and retries remain outside the adapter.
 
-- [ ] **Step 1: Написать failing registry/contract tests**
+- [x] **Step 1: Написать failing registry/contract tests**
 
 ```python
 # backend/apps/discovery/tests/test_registry.py
@@ -2829,7 +2829,7 @@ def test_contract_probe_executes_shared_contract():
 
 `make_contract_adapter()` и `make_discovery_request()` живут в `tests/fakes.py`; первый fake возвращает минимум один payload и parsed record. Поэтому helper является collectable test path, а не dead example. Tests также требуют `UnknownDiscoveryAdapter("missing")`, immutable value objects, invalid `BoundingBox`, empty dataset version, and non-positive `result_limit`.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_registry.py -q
@@ -2837,19 +2837,19 @@ docker compose run --rm backend pytest apps/discovery/tests/test_registry.py -q
 
 Expected: FAIL с отсутствующим discovery package.
 
-- [ ] **Step 3: Реализовать exact domain types и errors**
+- [x] **Step 3: Реализовать exact domain types и errors**
 
 Создать `domain.py` и `errors.py` exactly as declared in the Interfaces block. `InvalidSourcePayload` is the sole parser-error type passed from an adapter to persistence; network timeouts use `TransientSourceError("SOURCE_TIMEOUT")`, 429 uses `RateLimitedSourceError(retry_after_seconds=...)`, and unrecoverable provider configuration/schema errors use `PermanentSourceError(code)`.
 
-- [ ] **Step 4: Реализовать lazy registry**
+- [x] **Step 4: Реализовать lazy registry**
 
 Registry читает dotted paths из `settings.DISCOVERY_ADAPTERS`, импортирует через `import_string`, кэширует factory, но возвращает новый adapter instance для каждого source run. Никаких global mutable HTTP clients.
 
-- [ ] **Step 5: Перенести временные domain types из Task 12**
+- [x] **Step 5: Перенести временные domain types из Task 12**
 
 `sources.services` imports `SourcePayload` and `RawBusinessRecord` only from `apps.discovery.domain`; replace temporary `SourcePayloadParseError` with `InvalidSourcePayload`. Keep `SourceRecordConflictError` in `apps.sources.domain`, so Task 12 persistence signature and conflict tests do not change. This is a refactor only after Task 12 GREEN.
 
-- [ ] **Step 6: Проверить GREEN**
+- [x] **Step 6: Проверить GREEN**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_registry.py apps/sources/tests/test_persist_source_payload.py -q
@@ -2858,7 +2858,7 @@ docker compose run --rm backend ruff check apps/discovery apps/sources
 
 Expected: PASS/exit 0.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/apps/discovery backend/apps/sources backend/config/settings
