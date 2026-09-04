@@ -1,4 +1,4 @@
-.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check
+.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check workers-up workers-inspect
 
 up:
 	docker compose up -d --build
@@ -25,3 +25,11 @@ backend-test:
 backend-check:
 	docker compose run --rm backend ruff check .
 	docker compose run --rm backend python manage.py check
+
+workers-up:
+	docker compose build backend
+	docker compose up -d --wait --wait-timeout 90 celery-discovery celery-normalization
+
+workers-inspect:
+	docker compose exec celery-discovery celery -A config inspect active_queues -d discovery@celery-discovery
+	docker compose exec celery-normalization celery -A config inspect active_queues -d normalization@celery-normalization

@@ -12,7 +12,7 @@
 
 ## Approved execution amendments
 
-Эти решения согласованы после первоначального review и имеют приоритет над оставшимися ниже историческими snippets, которые ещё упоминают MinIO или Celery result backend:
+Эти решения согласованы после первоначального review и имеют приоритет над оставшимися ниже историческими snippets, которые ещё упоминают MinIO:
 
 - repository root: `/Users/vll/VLL/projects/local_buss_finder`;
 - PostgreSQL/PostGIS для local/E2E собирается как native multi-arch image из pinned `postgres:17.11-trixie` и `ghcr.io/pglayers/pgx-postgis:17` manifests; это имеет приоритет над историческим `postgis/postgis:17-3.6`, который публикуется только для `amd64`;
@@ -20,6 +20,8 @@
 - application boundary остаётся provider-neutral через `S3_*` settings и boto3;
 - production не использует bundled Garage автоматически: production S3 provider выбирается отдельно;
 - Redis не хранит Celery task results; `CELERY_TASK_IGNORE_RESULT=True`, а продуктовый progress хранится только в PostgreSQL;
+- Python Redis client закреплён на `redis==5.2.1`: это верхняя совместимая версия для `kombu[redis] 5.5.x`; Redis server остаётся на 7.4;
+- общий development backend image имеет одного владельца сборки (`backend`); Celery services переиспользуют тот же image tag без собственного `build`, чтобы параллельный BuildKit export не конфликтовал;
 - development requirements lock компилируется с `--allow-unsafe --strip-extras`, чтобы transitive зависимости `pip-tools` (`pip`, `setuptools`) тоже имели exact versions и hashes и принимались `pip install --require-hashes`;
 - корректный RED — запустившийся test с ожидаемым assertion failure. `ModuleNotFoundError`, `KeyError` и другие ошибки test harness сначала исправляются и не считаются подтверждённым RED;
 - Task 1 использует services `postgres`, `redis`, `garage`, volumes `postgres_data`, `redis_data`, `garage_meta`, `garage_data` и `infrastructure/garage/garage.toml`; отдельные `minio-ready`/`minio-init` не создаются.
@@ -309,7 +311,7 @@ x-backend-environment: &backend-environment
   DATABASE_URL: postgis://${POSTGRES_USER:-lbi}:${POSTGRES_PASSWORD:-lbi-dev-only}@postgres:5432/${POSTGRES_DB:-local_business_intelligence}
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/0
-  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  CELERY_TASK_IGNORE_RESULT: "true"
   S3_ENDPOINT_URL: http://minio:9000
   S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
@@ -525,7 +527,7 @@ psycopg[binary]==3.3.5
 django-environ==0.14.0
 django-cors-headers==4.9.0
 boto3==1.43.73
-redis==6.4.0
+redis==5.2.1
 gunicorn==23.0.0
 ```
 
@@ -746,10 +748,10 @@ git commit -m "feat: add Django REST foundation and health checks"
 - Modify: `Makefile`
 
 **Interfaces:**
-- Consumes: `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`.
+- Consumes: `CELERY_BROKER_URL`, `CELERY_TASK_IGNORE_RESULT`.
 - Produces: Celery app `config.celery.app`; queues `discovery`, `normalization`; deterministic route patterns for future task names.
 
-- [ ] **Step 1: Написать failing Celery configuration test**
+- [x] **Step 1: Написать failing Celery configuration test**
 
 ```python
 # backend/apps/system/tests/test_celery_config.py
@@ -758,27 +760,35 @@ from config.celery import app
 
 def test_pipeline_tasks_are_routed_to_separate_queues():
     routes = app.conf.task_routes
+    assert routes is not None
     assert routes["apps.discovery.tasks.*"]["queue"] == "discovery"
     assert routes["apps.normalization.tasks.*"]["queue"] == "normalization"
     assert app.conf.task_serializer == "json"
     assert app.conf.accept_content == ["json"]
     assert app.conf.task_track_started is True
     assert app.conf.task_acks_late is True
+    assert app.conf.task_reject_on_worker_lost is True
     assert app.conf.task_publish_retry is True
     assert app.conf.task_publish_retry_policy["max_retries"] == 3
+
+
+def test_celery_uses_redis_only_as_broker():
+    assert app.conf.broker_url == "redis://redis:6379/0"
+    assert app.conf.task_ignore_result is True
+    assert app.conf.result_backend is None
 ```
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/system/tests/test_celery_config.py -q
 ```
 
-Expected: FAIL с `ModuleNotFoundError: config.celery`.
+Expected: FAIL только на assertions об отсутствующих routes и `task_ignore_result=False`; import/test harness уже работоспособны.
 
-- [ ] **Step 3: Реализовать minimal Celery app**
+- [x] **Step 3: Реализовать minimal Celery app**
 
-Добавить `celery[redis]==5.5.3` в `base.in` и перекомпилировать все три lockfiles exact commands из Task 2. `config/celery.py`:
+Добавить `celery[redis]==5.5.3`, закрепить совместимый `redis==5.2.1` в `base.in` и перекомпилировать все три lockfiles exact commands из Task 2. `config/celery.py`:
 
 ```python
 import os
@@ -812,16 +822,17 @@ CELERY_TASK_PUBLISH_RETRY_POLICY = {
     "interval_max": 1,
 }
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=env("REDIS_URL"))
+CELERY_TASK_IGNORE_RESULT = env.bool("CELERY_TASK_IGNORE_RESULT", default=True)
+CELERY_RESULT_BACKEND = None
 ```
 
 Publish retry сначала делает три короткие broker attempts. Если публикация `self.retry` всё равно невозможна, wrapper Task 17 явно поднимает `Reject(..., requeue=True)`; глобально переопределять ACK семантику обычных failures не нужно. Идемпотентная reservation не списывает business retry budget повторно при redelivery.
 
-- [ ] **Step 4: Добавить worker services без будущих queues**
+- [x] **Step 4: Добавить worker services без будущих queues**
 
 ```yaml
   celery-discovery:
-    build: {context: ./backend}
+    image: local-business-intelligence/backend:development
     hostname: celery-discovery
     command: celery -A config worker -Q discovery -l INFO --concurrency=1 --hostname=discovery@%h
     environment: *backend-environment
@@ -844,7 +855,7 @@ Publish retry сначала делает три короткие broker attempt
       start_period: 5s
 
   celery-normalization:
-    build: {context: ./backend}
+    image: local-business-intelligence/backend:development
     hostname: celery-normalization
     command: celery -A config worker -Q normalization -l INFO --concurrency=2 --hostname=normalization@%h
     environment: *backend-environment
@@ -867,7 +878,7 @@ Publish retry сначала делает три короткие broker attempt
       start_period: 5s
 ```
 
-`x-backend-environment` и `x-backend-depends-on` определены в Task 1 и используются без локальных копий в `backend`, `celery-discovery` и `celery-normalization`; все три процесса получают одинаковые `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` и `S3_REGION_NAME`. Не создавать workers для deduplication/enrichment/crawling/audit/scoring.
+`backend` единолично содержит `build: *backend-build` и публикует `local-business-intelligence/backend:development`; оба worker services только переиспользуют этот image tag. `x-backend-environment` и `x-backend-depends-on` определены в Task 1 и используются без локальных копий в `backend`, `celery-discovery` и `celery-normalization`; все три процесса получают одинаковые `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` и `S3_REGION_NAME`. Не создавать workers для deduplication/enrichment/crawling/audit/scoring.
 
 Healthcheck не ограничивается живым container process: targeted `active_queues()` обязан увидеть worker с ожидаемым именем и нужной queue. Расширить Compose contract test:
 
@@ -878,7 +889,12 @@ def test_celery_workers_become_healthy_only_with_expected_queue(self) -> None:
         ("celery-discovery", "discovery"),
         ("celery-normalization", "normalization"),
     ):
+        self.assertIn(service_name, services)
         service = services[service_name]
+        self.assertEqual(services["backend"]["image"], service["image"])
+        self.assertNotIn("build", service)
+        self.assertEqual("true", service["environment"]["CELERY_TASK_IGNORE_RESULT"])
+        self.assertNotIn("CELERY_RESULT_BACKEND", service["environment"])
         command = service["command"]
         command_text = command if isinstance(command, str) else " ".join(command)
         self.assertIn(f"--hostname={queue_name}@%h", command_text)
@@ -887,7 +903,7 @@ def test_celery_workers_become_healthy_only_with_expected_queue(self) -> None:
         self.assertIn(f"== {{'{queue_name}'}}", healthcheck)
 ```
 
-- [ ] **Step 5: Проверить GREEN и worker connectivity**
+- [x] **Step 5: Проверить GREEN и worker connectivity**
 
 ```bash
 docker compose build backend celery-discovery celery-normalization
@@ -900,7 +916,7 @@ docker compose exec celery-normalization celery -A config inspect active_queues 
 
 Expected: tests PASS; Compose ждёт healthcheck, и каждый targeted worker показывает только свою queue.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend docker-compose.yml tests/infra/test_compose_contract.py Makefile
@@ -4888,7 +4904,7 @@ services:
       DATABASE_URL: postgis://lbi_e2e:lbi-e2e-only@postgres:5432/lbi_e2e
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CELERY_TASK_IGNORE_RESULT: "true"
       S3_ENDPOINT_URL: http://minio:9000
       S3_ACCESS_KEY_ID: minio-e2e
       S3_SECRET_ACCESS_KEY: minio-e2e-only
@@ -4915,7 +4931,7 @@ Project isolation comes from every command's `-p local-business-intelligence-e2e
 
 - [ ] **Step 4: Написать failing real Celery/Redis test**
 
-`backend/apps/discovery/tests/integration/test_celery_redis.py` запускает настоящие Celery consumers по очереди через `celery.contrib.testing.worker`: broker/result backend остаются настоящим Redis, но test точно контролирует отсутствие normalization consumer без управления Docker из test process.
+`backend/apps/discovery/tests/integration/test_celery_redis.py` запускает настоящие Celery consumers по очереди через `celery.contrib.testing.worker`: broker остаётся настоящим Redis, result backend отключён, а test точно контролирует отсутствие normalization consumer без управления Docker из test process.
 
 ```python
 import time

@@ -55,6 +55,12 @@ class ComposeContractTest(unittest.TestCase):
         self.assertIn("pip==", development_lock)
         self.assertIn("setuptools==", development_lock)
 
+    def test_python_redis_client_matches_celery_transport_support(self) -> None:
+        base_requirements = Path("backend/requirements/base.in").read_text()
+
+        self.assertIn("celery[redis]==5.5.3", base_requirements)
+        self.assertIn("redis==5.2.1", base_requirements)
+
     def test_stateful_ports_are_bound_only_to_loopback(self) -> None:
         services = self.load_config()["services"]
 
@@ -105,6 +111,27 @@ class ComposeContractTest(unittest.TestCase):
             environment.get("GARAGE_DEFAULT_SECRET_KEY"),
         )
         self.assertIsNotNone(garage.get("healthcheck"))
+
+    def test_celery_workers_become_healthy_only_with_expected_queue(self) -> None:
+        services = self.load_config()["services"]
+
+        for service_name, queue_name in (
+            ("celery-discovery", "discovery"),
+            ("celery-normalization", "normalization"),
+        ):
+            with self.subTest(service=service_name):
+                self.assertIn(service_name, services)
+                service = services[service_name]
+                self.assertEqual(services["backend"]["image"], service["image"])
+                self.assertNotIn("build", service)
+                self.assertEqual("true", service["environment"]["CELERY_TASK_IGNORE_RESULT"])
+                self.assertNotIn("CELERY_RESULT_BACKEND", service["environment"])
+                command = service["command"]
+                command_text = command if isinstance(command, str) else " ".join(command)
+                self.assertIn(f"--hostname={queue_name}@%h", command_text)
+                healthcheck = " ".join(service["healthcheck"]["test"])
+                self.assertIn("active_queues", healthcheck)
+                self.assertIn(f"== {{'{queue_name}'}}", healthcheck)
 
     def test_e2e_override_removes_host_ports(self) -> None:
         services = self.load_config("docker-compose.yml", "docker-compose.e2e.yml")[

@@ -24,11 +24,14 @@ x-backend-depends-on: &backend-depends-on
   redis: {condition: service_healthy}
   garage: {condition: service_healthy}
 
+x-backend-build: &backend-build
+  context: ./backend
+  target: development
+
 services:
   backend:
-    build:
-      context: ./backend
-      target: development
+    build: *backend-build
+    image: local-business-intelligence/backend:development
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2
     environment: *backend-environment
     depends_on: *backend-depends-on
@@ -45,6 +48,54 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    networks: [app]
+
+  celery-discovery:
+    image: local-business-intelligence/backend:development
+    hostname: celery-discovery
+    command: celery -A config worker -Q discovery -l INFO --concurrency=1 --hostname=discovery@%h
+    environment: *backend-environment
+    depends_on: *backend-depends-on
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import os; from config.celery import app;
+          name='discovery@'+os.environ['HOSTNAME'];
+          data=app.control.inspect(destination=[name], timeout=2).active_queues() or {};
+          assert {queue['name'] for queue in data.get(name, [])} == {'discovery'}
+      interval: 2s
+      timeout: 4s
+      retries: 30
+      start_period: 5s
+    networks: [app]
+
+  celery-normalization:
+    image: local-business-intelligence/backend:development
+    hostname: celery-normalization
+    command: celery -A config worker -Q normalization -l INFO --concurrency=2 --hostname=normalization@%h
+    environment: *backend-environment
+    depends_on: *backend-depends-on
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import os; from config.celery import app;
+          name='normalization@'+os.environ['HOSTNAME'];
+          data=app.control.inspect(destination=[name], timeout=2).active_queues() or {};
+          assert {queue['name'] for queue in data.get(name, [])} == {'normalization'}
+      interval: 2s
+      timeout: 4s
+      retries: 30
+      start_period: 5s
     networks: [app]
 
   postgres:
