@@ -10,9 +10,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.gis",
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "corsheaders",
     "rest_framework",
+    "apps.geography.apps.GeographyConfig",
     "apps.system.apps.SystemConfig",
 ]
 

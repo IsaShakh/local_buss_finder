@@ -1654,7 +1654,7 @@ git commit -m "feat: add Russian session login and protected shell"
 - Consumes: PostGIS database from Task 1; `TimestampedUUIDModel`.
 - Produces: `Country`, `Province`, `District`, `Neighborhood`, `SearchArea`; `GET /geography/search-areas/`.
 
-- [ ] **Step 1: Написать failing model/API tests**
+- [x] **Step 1: Написать failing model/API tests**
 
 ```python
 # backend/apps/geography/tests/test_models.py
@@ -1740,7 +1740,7 @@ def test_reference_seed_is_idempotent_and_creates_alanya_pilot_area():
     assert SearchArea.objects.filter(name="Аланья — пилот", is_active=True).count() == 1
 ```
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/geography/tests -q
@@ -1748,7 +1748,7 @@ docker compose run --rm backend pytest apps/geography/tests -q
 
 Expected: FAIL с отсутствующим module/models.
 
-- [ ] **Step 3: Создать extension migration до schema migration**
+- [x] **Step 3: Создать extension migration до schema migration**
 
 ```python
 # 0001_extensions.py
@@ -1777,11 +1777,11 @@ def test_required_postgres_extensions_are_installed():
 
 Импортировать `connection` из `django.db`.
 
-- [ ] **Step 4: Реализовать models, hierarchy validation и API**
+- [x] **Step 4: Реализовать models, hierarchy validation и API**
 
 Geometry fields — `MultiPolygonField(srid=4326, null=True)` у admin levels и required у `SearchArea`; явно добавить GiST index для `SearchArea.geometry`. Serializer отдаёт `id`, `name`, ancestry, `geometry` и `[west, south, east, north]` bbox.
 
-- [ ] **Step 5: Реализовать идемпотентный seed**
+- [x] **Step 5: Реализовать идемпотентный seed**
 
 Command создаёт codes/slugs и operational rectangle:
 
@@ -1791,7 +1791,7 @@ ALANYA_PILOT_BBOX = (31.70, 36.30, 32.65, 36.75)
 
 В README пояснить, что это operational AOI, не юридическая граница. Два запуска command дают по одной записи каждого уровня и один `SearchArea`.
 
-- [ ] **Step 6: Проверить GREEN, migrations и spatial query**
+- [x] **Step 6: Проверить GREEN, migrations и spatial query**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -1803,7 +1803,7 @@ docker compose run --rm backend python manage.py makemigrations --check --dry-ru
 
 Expected: tests PASS; second seed creates nothing extra; no pending migrations.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/apps/geography backend/config README.md

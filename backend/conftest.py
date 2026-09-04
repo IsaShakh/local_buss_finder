@@ -18,6 +18,7 @@ def owner(db):
 
 
 @pytest.fixture
-def auth_client(api_client: APIClient, owner) -> APIClient:
-    api_client.force_authenticate(owner)
-    return api_client
+def auth_client(owner) -> APIClient:
+    client = APIClient()
+    client.force_authenticate(owner)
+    return client
