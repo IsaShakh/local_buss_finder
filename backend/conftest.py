@@ -39,3 +39,12 @@ def osm_source(db):
 
     call_command("seed_sources")
     return Source.objects.get(code="osm")
+
+
+@pytest.fixture
+def dentist_category(db):
+    from apps.taxonomy.models import BusinessCategory
+
+    call_command("seed_sources")
+    call_command("seed_taxonomy")
+    return BusinessCategory.objects.get(slug="dentist")

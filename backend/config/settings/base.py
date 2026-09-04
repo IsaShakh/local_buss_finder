@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "apps.geography.apps.GeographyConfig",
     "apps.sources.apps.SourcesConfig",
     "apps.system.apps.SystemConfig",
+    "apps.taxonomy.apps.TaxonomyConfig",
 ]
 
 MIDDLEWARE = [

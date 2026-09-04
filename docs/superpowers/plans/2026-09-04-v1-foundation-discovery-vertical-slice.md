@@ -1958,7 +1958,7 @@ git commit -m "feat: add configurable discovery sources"
 - Consumes: `Source` from Task 8.
 - Produces: `BusinessCategory`, `SourceCategoryMapping`, `resolve_category(source_id, external_category) -> UUID | None`, `resolve_external_categories(source_id, category_ids) -> tuple[str, ...]`, `GET /taxonomy/categories/`.
 
-- [ ] **Step 1: Написать failing hierarchy/mapping tests**
+- [x] **Step 1: Написать failing hierarchy/mapping tests**
 
 ```python
 from django.core.management import call_command
@@ -2022,7 +2022,7 @@ def test_external_category_is_unique_within_source(osm_source, dentist_category)
 
 Импорты для этих tests: `ValidationError` из `django.core.exceptions` и `IntegrityError` из `django.db`. В этом Task добавить `dentist_category` fixture из §1.1 в `backend/conftest.py`.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/taxonomy/tests -q
@@ -2030,11 +2030,11 @@ docker compose run --rm backend pytest apps/taxonomy/tests -q
 
 Expected: FAIL с отсутствующими models/service.
 
-- [ ] **Step 3: Реализовать models и cycle-safe validation**
+- [x] **Step 3: Реализовать models и cycle-safe validation**
 
 `BusinessCategory.clean()` проходит ancestors по `parent_id` и поднимает русскую `ValidationError` при цикле. DB constraints покрывают self-parent и unique slug. `SourceCategoryMapping` имеет `is_active`; resolver учитывает только active source/mapping/category. `resolve_external_categories` сортирует unique provider values лексикографически; пустой `category_ids` разворачивает все active mappings только данного source, непустой tuple — mappings выбранных внутренних categories.
 
-- [ ] **Step 4: Реализовать seed с точными mappings**
+- [x] **Step 4: Реализовать seed с точными mappings**
 
 ```text
 overture dentist             → dentist
@@ -2049,7 +2049,7 @@ osm shop=beauty              → beauty-salon
 
 Категории: четыре root + четыре leaves из spec. API отдаёт дерево, а не flat parent labels.
 
-- [ ] **Step 5: Проверить GREEN**
+- [x] **Step 5: Проверить GREEN**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -2060,7 +2060,7 @@ docker compose run --rm backend ruff check apps/taxonomy
 
 Expected: all PASS; repeated seed is idempotent.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/taxonomy backend/config
