@@ -6,6 +6,8 @@ export const ALANYA_ID = '11111111-1111-4111-8111-111111111111';
 export const OVERTURE_ID = '22222222-2222-4222-8222-222222222222';
 export const OSM_ID = '33333333-3333-4333-8333-333333333333';
 export const CAMPAIGN_ID = '55555555-5555-4555-8555-555555555555';
+export const SOURCE_RECORD_ID = '66666666-6666-4666-8666-666666666666';
+export const DENTIST_ID = '77777777-7777-4777-8777-777777777777';
 
 export const campaignCreateRequests: unknown[] = [];
 
@@ -50,6 +52,60 @@ const sources = [
     max_retries: 3,
   },
 ];
+
+const categories = [
+  {
+    id: '88888888-8888-4888-8888-888888888888',
+    name: 'Медицина',
+    slug: 'health',
+    children: [{ id: DENTIST_ID, name: 'Стоматология', slug: 'dentist', children: [] }],
+  },
+];
+
+export const sourceRecord = {
+  id: SOURCE_RECORD_ID,
+  is_canonical: false as const,
+  display_name: 'Smile Dental Alanya',
+  source: { code: 'osm', name: 'OpenStreetMap' },
+  category: { id: DENTIST_ID, name: 'Стоматология', slug: 'dentist' },
+  district: {
+    id: '99999999-9999-4999-8999-999999999999',
+    name: 'Аланья',
+    slug: 'alanya',
+  },
+  phones: ['+902425551212', '+902425551313'],
+  websites: ['https://smile.example', 'https://booking.smile.example'],
+  normalization_status: 'normalized' as const,
+  fetched_at: '2026-09-04T12:30:00Z',
+};
+
+export const businessesResponse = {
+  count: 120,
+  next: '/api/v1/source-records/?page=2&page_size=50',
+  previous: null,
+  results: [sourceRecord],
+};
+
+export const businessListRequests: URL[] = [];
+
+export const businessesEmptyHandler = http.get('/api/v1/source-records/', ({ request }) => {
+  businessListRequests.push(new URL(request.url));
+  return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+});
+
+export const businessesServerErrorHandler = http.get('/api/v1/source-records/', ({ request }) => {
+  businessListRequests.push(new URL(request.url));
+  return HttpResponse.json(
+    {
+      error: {
+        code: 'DATABASE_ERROR',
+        detail: 'SQL stack Traceback: connection unavailable',
+        fields: {},
+      },
+    },
+    { status: 500 },
+  );
+});
 
 export function campaignResponse(
   name = 'Аланья — первичный сбор',
@@ -238,7 +294,7 @@ export const handlers = [
     HttpResponse.json({ count: 1, next: null, previous: null, results: [alanyaArea] }),
   ),
   http.get('/api/v1/taxonomy/categories/', () =>
-    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+    HttpResponse.json({ count: 1, next: null, previous: null, results: categories }),
   ),
   http.get('/api/v1/sources/', () =>
     HttpResponse.json({ count: sources.length, next: null, previous: null, results: sources }),
@@ -268,4 +324,29 @@ export const handlers = [
     });
   }),
   http.get('/api/v1/campaigns/:id/progress/', () => HttpResponse.json(progressResponses.take())),
+  http.get('/api/v1/dashboard/summary/', () =>
+    HttpResponse.json({
+      records: { raw: 120, normalized: 96, rejected: 20, failed: 4 },
+      campaigns: { total: 3, running: 1, with_errors: 1 },
+      recent_campaigns: [
+        {
+          id: CAMPAIGN_ID,
+          name: 'Аланья — первичный сбор',
+          status: 'completed_with_errors',
+          normalized: 96,
+          updated_at: '2026-09-04T13:00:00Z',
+        },
+      ],
+    }),
+  ),
+  http.get('/api/v1/source-records/', ({ request }) => {
+    const url = new URL(request.url);
+    businessListRequests.push(url);
+    const page = Number(url.searchParams.get('page') ?? '1');
+    return HttpResponse.json({
+      ...businessesResponse,
+      next: page * 50 < businessesResponse.count ? `/api/v1/source-records/?page=${page + 1}` : null,
+      previous: page > 1 ? `/api/v1/source-records/?page=${page - 1}` : null,
+    });
+  }),
 ];

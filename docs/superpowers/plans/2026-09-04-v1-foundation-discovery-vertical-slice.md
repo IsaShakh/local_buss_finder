@@ -4526,7 +4526,7 @@ export type SourceRecordQuery = {
 };
 ```
 
-- [ ] **Step 1: Написать failing dashboard behavior test**
+- [x] **Step 1: Написать failing dashboard behavior test**
 
 ```tsx
 it('показывает честные сводные показатели первого среза', async () => {
@@ -4542,7 +4542,7 @@ it('показывает честные сводные показатели пе
 });
 ```
 
-- [ ] **Step 2: Написать failing business table tests**
+- [x] **Step 2: Написать failing business table tests**
 
 ```tsx
 it('показывает предупреждение до дедупликации и серверную пагинацию', async () => {
@@ -4613,7 +4613,7 @@ it('отклоняет каноническую строку на границе
 
 `businessListRequests` хранит `new URL(request.url)` и очищается в `beforeEach`; `sourceRecordPageSchema` требует literal `is_canonical: z.literal(false)`. Эти tests идут в `BusinessesPage.test.tsx`, а именованные empty/error handlers — в `frontend/src/test/handlers.ts`.
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 ```bash
 cd frontend
@@ -4622,17 +4622,17 @@ npm run test:run -- src/features/dashboard src/features/businesses
 
 Expected: FAIL с отсутствующими pages/components.
 
-- [ ] **Step 4: Реализовать DashboardPage**
+- [x] **Step 4: Реализовать DashboardPage**
 
 Cards: «Сырых записей», «Нормализовано», «Отклонено», «С ошибками», «Кампаний выполняется». Recent campaign rows используют `campaignStatusLabel`. Zero state: «Кампаний пока нет» + link «Создать первую кампанию».
 
-- [ ] **Step 5: Реализовать DataTable и query-param filters**
+- [x] **Step 5: Реализовать DataTable и query-param filters**
 
 Columns строго: «Название», «Источник», «Категория», «Район», «Телефон», «Сайт», «Статус», «Получено». Search debounce 300 ms; filters/source/category и `page` живут в URL. Изменение search/filter сбрасывает page на 1. Phone/site cells показывают первый item и `+N`, пустое значение — `—`. Site link имеет safe `rel="noopener noreferrer"` и открывается в новой вкладке.
 
 Table не делает client-side sorting полного dataset: header меняет API `ordering`; `page_size` фиксирован 50. API и UI не передают `normalization_status`, поскольку endpoint возвращает только normalized rows.
 
-- [ ] **Step 6: Проверить loading/error/empty states и GREEN**
+- [x] **Step 6: Проверить loading/error/empty states и GREEN**
 
 ```bash
 cd frontend
@@ -4644,7 +4644,7 @@ npm run build
 
 Expected: all PASS/exit 0. MSW tests отдельно проверяют русское сообщение при 500 и пустой результат после фильтрации.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/features/dashboard frontend/src/features/businesses frontend/src/components frontend/src/app frontend/src/test

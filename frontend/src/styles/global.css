@@ -355,6 +355,158 @@ h1 {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.summary-grid > div {
+  padding: 22px;
+  border: 1px solid #dce4e9;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.summary-grid dt {
+  color: #52616b;
+}
+
+.summary-grid dd {
+  margin: 10px 0 0;
+  color: #174e3e;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.empty-state {
+  padding: 28px;
+  border: 1px dashed #aebdc6;
+  border-radius: 14px;
+  color: #52616b;
+  background: #ffffff;
+}
+
+.notice {
+  margin: 0;
+  padding: 16px 18px;
+  border-left: 4px solid #367ea5;
+  border-radius: 8px;
+  color: #294956;
+  background: #e5f1f7;
+}
+
+.business-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.business-filters label {
+  display: grid;
+  gap: 7px;
+  color: #52616b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.business-filters input,
+.business-filters select {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #aebdc6;
+  border-radius: 8px;
+  color: #17212b;
+  background: #ffffff;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid #dce4e9;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e7edf0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-scroll th {
+  color: #40535e;
+  background: #f2f6f8;
+  white-space: nowrap;
+}
+
+.table-scroll th button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-weight: inherit;
+}
+
+.table-scroll tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.source-badge,
+.compact-values small {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #315667;
+  background: #e5f0f5;
+  font-weight: 750;
+}
+
+.compact-values {
+  display: flex;
+  max-width: 220px;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.compact-values > span,
+.compact-values > a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.pagination button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid #9aabb5;
+  border-radius: 8px;
+  color: #26343d;
+  background: #ffffff;
+}
+
 @media (max-width: 700px) {
   .login-card {
     padding: 28px 22px;
@@ -377,5 +529,9 @@ h1 {
 
   .app-content {
     padding: 28px 22px;
+  }
+
+  .business-filters {
+    grid-template-columns: 1fr;
   }
 }

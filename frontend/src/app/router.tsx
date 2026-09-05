@@ -6,10 +6,8 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { CampaignCreatePage } from '../features/campaigns/CampaignCreatePage';
 import { CampaignDetailPage } from '../features/campaigns/CampaignDetailPage';
 import { CampaignListPage } from '../features/campaigns/CampaignListPage';
-
-function SectionPage({ title }: { title: string }) {
-  return <h1>{title}</h1>;
-}
+import { BusinessesPage } from '../features/businesses/BusinessesPage';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 
 export function AppRouter() {
   return (
@@ -17,11 +15,11 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route index element={<SectionPage title="Обзор" />} />
+          <Route index element={<DashboardPage />} />
           <Route path="campaigns" element={<CampaignListPage />} />
           <Route path="campaigns/new" element={<CampaignCreatePage />} />
           <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
-          <Route path="businesses" element={<SectionPage title="Бизнесы" />} />
+          <Route path="businesses" element={<BusinessesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
