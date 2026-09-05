@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "apps.campaigns.apps.CampaignsConfig",
     "apps.discovery.apps.DiscoveryConfig",
     "apps.geography.apps.GeographyConfig",
+    "apps.normalization.apps.NormalizationConfig",
     "apps.sources.apps.SourcesConfig",
     "apps.system.apps.SystemConfig",
     "apps.taxonomy.apps.TaxonomyConfig",

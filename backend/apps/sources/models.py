@@ -205,3 +205,68 @@ class SourceRecordConflict(TimestampedUUIDModel):
 
     def __str__(self) -> str:
         return f"{self.source.code}: {self.external_id} conflict"
+
+
+class NormalizedSourceRecord(TimestampedUUIDModel):
+    source_record = models.OneToOneField(
+        SourceRecord,
+        on_delete=models.CASCADE,
+        related_name="normalized_record",
+    )
+    display_name = models.TextField()
+    normalized_name = models.TextField()
+    match_name = models.TextField()
+    category = models.ForeignKey(
+        "taxonomy.BusinessCategory",
+        on_delete=models.PROTECT,
+        related_name="normalized_source_records",
+        null=True,
+        blank=True,
+    )
+    address_text = models.TextField(blank=True)
+    country = models.ForeignKey(
+        "geography.Country",
+        on_delete=models.PROTECT,
+        related_name="normalized_source_records",
+        null=True,
+        blank=True,
+    )
+    province = models.ForeignKey(
+        "geography.Province",
+        on_delete=models.PROTECT,
+        related_name="normalized_source_records",
+        null=True,
+        blank=True,
+    )
+    district = models.ForeignKey(
+        "geography.District",
+        on_delete=models.PROTECT,
+        related_name="normalized_source_records",
+        null=True,
+        blank=True,
+    )
+    neighborhood = models.ForeignKey(
+        "geography.Neighborhood",
+        on_delete=models.PROTECT,
+        related_name="normalized_source_records",
+        null=True,
+        blank=True,
+    )
+    location = gis_models.PointField(srid=4326, null=True, blank=True)
+    phones = models.JSONField(default=list, blank=True)
+    emails = models.JSONField(default=list, blank=True)
+    websites = models.JSONField(default=list, blank=True)
+    social_urls = models.JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    normalization_version = models.CharField(max_length=32)
+    normalized_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ("-normalized_at", "-id")
+        indexes: ClassVar = [
+            GistIndex(fields=("location",), name="norm_src_location_gist"),
+        ]
+
+    def __str__(self) -> str:
+        return self.display_name

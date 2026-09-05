@@ -3213,7 +3213,7 @@ def normalize_social_urls(
 def materialize_normalization(source_record_id: UUID) -> NormalizedSourceRecord | None: ...
 ```
 
-- [ ] **Step 1: Написать failing Turkish name tests**
+- [x] **Step 1: Написать failing Turkish name tests**
 
 ```python
 @pytest.mark.parametrize(
@@ -3244,7 +3244,7 @@ def test_legal_suffix_is_removed_only_at_end_of_name():
 
 Implementation удаляет legal suffix одним end-anchored expression после whitespace normalization; глобальная замена `A.Ş.` запрещена этим regression test.
 
-- [ ] **Step 2: Написать failing phone/URL/coordinate tests**
+- [x] **Step 2: Написать failing phone/URL/coordinate tests**
 
 ```python
 def test_turkish_mobile_phone_is_e164():
@@ -3263,7 +3263,7 @@ def test_invalid_coordinates_are_rejected(lon, lat):
 
 `test_emails.py` требует `normalize_emails([" Test@Example.COM ", "bad"]) == NormalizedStrings(("test@example.com",), ("INVALID_EMAIL",))`; `test_addresses.py` требует `normalize_address("  Atatürk  Cd.\n 12 ") == "Atatürk Cd. 12"` и `normalize_address(None) == ""`; `test_socials.py` проверяет canonical HTTPS URL, lowercase host, сохранение provider keys и stable first-seen deduplication. В aggregate test координаты `181,36` дают `location is None` и `INVALID_COORDINATES`, без исключения.
 
-- [ ] **Step 3: Запустить RED для pure rules**
+- [x] **Step 3: Запустить RED для pure rules**
 
 ```bash
 docker compose run --rm backend pytest apps/normalization/tests/test_names.py apps/normalization/tests/test_phones.py apps/normalization/tests/test_urls.py apps/normalization/tests/test_emails.py apps/normalization/tests/test_addresses.py apps/normalization/tests/test_socials.py -q
@@ -3271,11 +3271,11 @@ docker compose run --rm backend pytest apps/normalization/tests/test_names.py ap
 
 Expected: FAIL с отсутствующими functions.
 
-- [ ] **Step 4: Реализовать minimal pure rules**
+- [x] **Step 4: Реализовать minimal pure rules**
 
 Добавить `phonenumbers==9.0.38` в `base.in` и перекомпилировать все три lockfiles exact commands из Task 2. Name pipeline: NFKC → whitespace collapse → terminal legal suffix removal → `casefold` → explicit Turkish transliteration только для `match_name`. Collections deduplicate while retaining first-seen order. `normalize_emails` lowercases valid addresses, drops invalid values и возвращает `INVALID_EMAIL` в result warnings; `normalize_address` applies NFKC/whitespace collapse and returns empty string for null input. `normalize_social_urls` принимает provider→URLs, пропускает только `http/https`, canonicalizes host/fragment и сохраняет provider keys. Invalid optional phone/email/URL gives warning, не rejects record. Out-of-range coordinates return `location=None` and warning `INVALID_COORDINATES`; absent coordinates return `location=None` and `MISSING_COORDINATES`; neither raises from the aggregate normalizer. Geography FKs копируются из campaign `SearchArea` как scope сбора, а не геокодируются из `raw_address`; записать `attributes.geography_basis="search_area"`.
 
-- [ ] **Step 5: Написать failing aggregate/materialization tests**
+- [x] **Step 5: Написать failing aggregate/materialization tests**
 
 ```python
 @pytest.mark.django_db
@@ -3315,7 +3315,7 @@ def test_optional_coordinate_problem_keeps_record_normalized(
 
 Test повторного `materialize_normalization` доказывает one-to-one upsert и одну normalized row. `materialize_normalization` единолично владеет переходами, вызванными normalization rules (`pending → normalized|rejected|failed`), и соответствующими counters; Task 12 отдельно владеет parser-failed insert, Task 17 — AOI rejection через `reject_source_record_once`. Pure rules и Celery wrappers counters не изменяют. Каждый outcome учитывается ровно один раз с общим lock order; `normalized`/`rejected` также увеличивает одноимённый campaign counter.
 
-- [ ] **Step 6: Запустить aggregate RED**
+- [x] **Step 6: Запустить aggregate RED**
 
 ```bash
 docker compose run --rm backend pytest apps/normalization/tests/test_service.py -q
@@ -3323,7 +3323,7 @@ docker compose run --rm backend pytest apps/normalization/tests/test_service.py 
 
 Expected: FAIL с отсутствующим model/service.
 
-- [ ] **Step 7: Реализовать model/service и проверить полный GREEN**
+- [x] **Step 7: Реализовать model/service и проверить полный GREEN**
 
 `NormalizedSourceRecord` fields строго из spec. `materialize_normalization` использует `transaction.atomic()` + `select_for_update()` на source record, source run и campaign в порядке `campaign → source run → source record`, получает category mapping, вызывает pure function, upserts one-to-one result и обновляет status/counters ровно один раз. Все остальные services используют тот же lock order, чтобы не создавать deadlock.
 
@@ -3336,7 +3336,7 @@ docker compose run --rm backend ruff check apps/normalization apps/sources
 
 Expected: all PASS/exit 0.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/apps/normalization backend/apps/sources backend/requirements backend/config/settings

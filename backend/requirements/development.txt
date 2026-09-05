@@ -830,6 +830,10 @@ packaging==26.3 \
     #   kombu
     #   pytest
     #   wheel
+phonenumbers==9.0.38 \
+    --hash=sha256:6806bebd46638af2fc2609675ea046067a40512eca81bf1446132e2fda29d113 \
+    --hash=sha256:f3cbeb1a42bf226060c60fc6277f5431755d325eddc23fbf2c72ef7e156113c6
+    # via -r requirements/base.in
 pip-tools==7.6.1 \
     --hash=sha256:6111c8b4b07fd14b7223ca921485b0e96cf66e20bf94da95eeed9845f510cb8f \
     --hash=sha256:695556edeb647eb94ee8345cc7108657fdb7fb16b3876623a399b4f61bbede01
