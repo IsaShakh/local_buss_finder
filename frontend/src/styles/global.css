@@ -193,6 +193,39 @@ h1 {
   gap: 28px;
 }
 
+.duplicate-card,
+.duplicate-dialog {
+  padding: 24px;
+  border: 1px solid #dce4e9;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.duplicate-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+}
+
+.duplicate-summary {
+  padding: 20px;
+  border-radius: 10px;
+  background: #f4f7f9;
+  overflow-wrap: anywhere;
+}
+
+.duplicate-summary h3 { margin-top: 0; }
+.duplicate-summary dt { margin-top: 12px; color: #52616b; }
+.duplicate-summary dd { margin: 4px 0 0; }
+.duplicate-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.duplicate-dialog { width: min(560px, calc(100% - 32px)); color: inherit; }
+.duplicate-dialog::backdrop { background: rgb(23 33 43 / 50%); }
+
+@media (max-width: 720px) {
+  .duplicate-comparison { grid-template-columns: 1fr; }
+}
+
 .page-heading,
 .campaign-meta,
 .source-heading,

@@ -92,6 +92,22 @@ export const businessesResponse = {
   results: [business],
 };
 
+export const duplicateCandidate = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  left_business: business,
+  right_business: { ...business, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', display_name: 'Smile Dental East', address_text: 'East Street 20' },
+  score: 75,
+  signals: [
+    { code: 'exact_phone', label: 'Совпадает телефон', weight: 35, value: null },
+    { code: 'exact_name', label: 'Совпадает название', weight: 30, value: null },
+    { code: 'same_category', label: 'Совпадает категория', weight: 10, value: null },
+  ],
+  created_at: '2026-09-04T12:30:00Z',
+  updated_at: '2026-09-04T12:30:00Z',
+};
+
+export const duplicateCandidatesResponse = { count: 1, next: null, previous: null, results: [duplicateCandidate] };
+
 export const businessListRequests: URL[] = [];
 
 export const businessesEmptyHandler = http.get('/api/v1/businesses/', ({ request }) => {
@@ -263,6 +279,7 @@ export const invalidCredentialsHandler = http.post('/api/v1/auth/login/', ({ req
 });
 
 export const handlers = [
+  http.get('/api/v1/duplicate-candidates/', () => HttpResponse.json(duplicateCandidatesResponse)),
   http.get('/api/v1/auth/session/', ({ request }) => {
     if (request.credentials !== 'include') {
       return HttpResponse.json({ detail: 'credentials отсутствуют' }, { status: 400 });

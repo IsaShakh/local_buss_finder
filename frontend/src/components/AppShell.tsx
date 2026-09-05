@@ -7,7 +7,8 @@ import { useAuth } from '../features/auth/auth-context';
 const navigation = [
   { to: '/', label: 'Обзор', end: true },
   { to: '/campaigns', label: 'Кампании', end: false },
-  { to: '/businesses', label: 'Бизнесы', end: false },
+  { to: '/businesses', label: 'Бизнесы', end: true },
+  { to: '/businesses/duplicates', label: 'Дубликаты', end: true },
 ];
 
 export function AppShell() {

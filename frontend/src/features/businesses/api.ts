@@ -1,6 +1,6 @@
 import { request } from '../../api/client';
-import { businessPageSchema } from './types';
-import type { BusinessListQuery } from './types';
+import { businessPageSchema, duplicateCandidatePageSchema, duplicateDecisionSchema } from './types';
+import type { BusinessListQuery, DuplicateCandidate, DuplicateDecision } from './types';
 
 const PAGE_SIZE = 50;
 
@@ -14,4 +14,28 @@ export async function listBusinesses(query: BusinessListQuery) {
 
   const body = await request<unknown>(`/api/v1/businesses/?${params.toString()}`);
   return businessPageSchema.parse(body);
+}
+
+export async function getDuplicateCandidates(): Promise<DuplicateCandidate[]> {
+  const candidates: DuplicateCandidate[] = [];
+  let page = 1;
+  while (true) {
+    const body = await request<unknown>(`/api/v1/duplicate-candidates/?page=${page}&page_size=${PAGE_SIZE}`);
+    const result = duplicateCandidatePageSchema.parse(body);
+    candidates.push(...result.results);
+    if (result.next === null) return candidates;
+    page += 1;
+  }
+}
+
+export async function confirmDuplicate(id: string): Promise<DuplicateDecision> {
+  return duplicateDecisionSchema.parse(await request<unknown>(`/api/v1/duplicate-candidates/${id}/confirm/`, {
+    method: 'POST', body: JSON.stringify({}),
+  }));
+}
+
+export async function rejectDuplicate(id: string): Promise<DuplicateDecision> {
+  return duplicateDecisionSchema.parse(await request<unknown>(`/api/v1/duplicate-candidates/${id}/reject/`, {
+    method: 'POST', body: JSON.stringify({}),
+  }));
 }

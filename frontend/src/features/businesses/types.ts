@@ -83,3 +83,37 @@ export const businessPageSchema: z.ZodType<Paginated<BusinessListItem>> = z.obje
   previous: z.string().nullable(),
   results: z.array(businessListItemSchema),
 });
+
+export const duplicateCandidateSchema = z.object({
+  id: z.string().uuid(),
+  left_business: businessListItemSchema,
+  right_business: businessListItemSchema,
+  score: z.number().int().min(0).max(100),
+  signals: z.array(z.object({
+    code: z.string(),
+    label: z.string(),
+    weight: z.number().int(),
+    value: z.union([z.string(), z.number()]).nullable(),
+  })),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type DuplicateCandidate = z.infer<typeof duplicateCandidateSchema>;
+
+export const duplicateCandidatePageSchema = z.object({
+  count: z.number().int().nonnegative(),
+  next: z.string().nullable(),
+  previous: z.string().nullable(),
+  results: z.array(duplicateCandidateSchema),
+});
+
+// Decision endpoints return an acknowledgement, not a pending comparison.
+export const duplicateDecisionSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['confirmed', 'rejected']),
+  survivor_business_id: z.string().uuid().nullable(),
+  merged_business_id: z.string().uuid().nullable(),
+});
+
+export type DuplicateDecision = z.infer<typeof duplicateDecisionSchema>;

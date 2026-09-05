@@ -47,7 +47,7 @@ def test_real_redis_keeps_normalization_work_until_worker_returns(owner, alanya_
             .values("discovery_finished_at", "stored_records")
         )
         return len(runs) == 2 and all(
-            row["discovery_finished_at"] is not None and row["stored_records"] == 2 for row in runs
+            row["discovery_finished_at"] is not None and row["stored_records"] == 3 for row in runs
         )
 
     with start_worker(
@@ -62,9 +62,9 @@ def test_real_redis_keeps_normalization_work_until_worker_returns(owner, alanya_
 
     alanya_campaign.refresh_from_db()
     assert alanya_campaign.status == DiscoveryCampaign.Status.RUNNING
-    assert alanya_campaign.raw_records_found == 4
+    assert alanya_campaign.raw_records_found == 6
     assert alanya_campaign.normalized_records == 0
-    assert SourceRecord.objects.filter(campaign=alanya_campaign).count() == 4
+    assert SourceRecord.objects.filter(campaign=alanya_campaign).count() == 6
 
     with start_worker(
         celery_app,
@@ -77,7 +77,7 @@ def test_real_redis_keeps_normalization_work_until_worker_returns(owner, alanya_
             lambda: DiscoveryCampaign.objects.filter(
                 id=alanya_campaign.id,
                 status=DiscoveryCampaign.Status.COMPLETED,
-                normalized_records=4,
+                normalized_records=6,
             ).exists(),
             description="normalization and campaign finalization",
         )
@@ -89,9 +89,9 @@ def test_real_redis_keeps_normalization_work_until_worker_returns(owner, alanya_
         alanya_campaign.completed_jobs,
         alanya_campaign.failed_jobs,
     )
-    assert before_retry == (4, 4, 2, 0)
+    assert before_retry == (6, 6, 2, 0)
     assert (
-        NormalizedSourceRecord.objects.filter(source_record__campaign=alanya_campaign).count() == 4
+        NormalizedSourceRecord.objects.filter(source_record__campaign=alanya_campaign).count() == 6
     )
 
     replay_finished = Event()
@@ -128,7 +128,7 @@ def test_real_redis_keeps_normalization_work_until_worker_returns(owner, alanya_
         alanya_campaign.completed_jobs,
         alanya_campaign.failed_jobs,
     ) == before_retry
-    assert SourceRecord.objects.filter(campaign=alanya_campaign).count() == 4
+    assert SourceRecord.objects.filter(campaign=alanya_campaign).count() == 6
     assert (
-        NormalizedSourceRecord.objects.filter(source_record__campaign=alanya_campaign).count() == 4
+        NormalizedSourceRecord.objects.filter(source_record__campaign=alanya_campaign).count() == 6
     )

@@ -7,6 +7,7 @@ import { CampaignCreatePage } from '../features/campaigns/CampaignCreatePage';
 import { CampaignDetailPage } from '../features/campaigns/CampaignDetailPage';
 import { CampaignListPage } from '../features/campaigns/CampaignListPage';
 import { BusinessesPage } from '../features/businesses/BusinessesPage';
+import { DuplicateCandidatesPage } from '../features/businesses/DuplicateCandidatesPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 
 export function AppRouter() {
@@ -20,6 +21,7 @@ export function AppRouter() {
           <Route path="campaigns/new" element={<CampaignCreatePage />} />
           <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
           <Route path="businesses" element={<BusinessesPage />} />
+          <Route path="businesses/duplicates" element={<DuplicateCandidatesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
