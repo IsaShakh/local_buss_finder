@@ -76,6 +76,32 @@ def test_candidate_list_rejects_unsupported_queries(auth_client, query):
     assert auth_client.get(f"{URL}?{query}").status_code == 400
 
 
+def test_candidate_pagination_accepts_digit_integers_with_default_and_maximum_sizes(
+    auth_client,
+    owner,
+    candidate_factory,
+):
+    businesses = Business.objects.bulk_create([Business(owner=owner) for _ in range(102)])
+    for business in businesses[1:]:
+        candidate_factory(businesses[0], business)
+
+    default = auth_client.get(URL)
+    first = auth_client.get(URL, {"page_size": "100", "page": "1"})
+    second = auth_client.get(URL, {"page_size": "100", "page": "2"})
+    single = auth_client.get(URL, {"page_size": "1", "page": "1"})
+
+    assert (
+        default.status_code == first.status_code == second.status_code == single.status_code == 200
+    )
+    assert default.json()["count"] == 101
+    assert len(default.json()["results"]) == 50
+    assert len(first.json()["results"]) == 100
+    assert len(second.json()["results"]) == len(single.json()["results"]) == 1
+    assert {row["id"] for row in first.json()["results"]}.isdisjoint(
+        row["id"] for row in second.json()["results"]
+    )
+
+
 @pytest.mark.parametrize("action", ["confirm", "reject"])
 def test_decision_persists_real_effects_and_repeated_decision_conflicts(
     auth_client,

@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse
@@ -270,9 +271,18 @@ class StrictInputSerializer(serializers.Serializer):
         return super().to_internal_value({key: data[key] for key in data})
 
 
+class PaginationIntegerField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        # Pagination reparses raw query strings, so accept only an unambiguous
+        # positive decimal representation before DRF can coerce the value.
+        if not isinstance(data, str) or re.fullmatch(r"[1-9][0-9]*", data) is None:
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
 class PaginationQuerySerializer(StrictInputSerializer):
-    page = serializers.IntegerField(min_value=1, required=False)
-    page_size = serializers.IntegerField(min_value=1, max_value=100, required=False)
+    page = PaginationIntegerField(min_value=1, required=False)
+    page_size = PaginationIntegerField(min_value=1, max_value=100, required=False)
 
 
 class BusinessQuerySerializer(PaginationQuerySerializer):

@@ -108,6 +108,22 @@ def test_business_queries_are_strict(auth_client, query):
     assert auth_client.get(f"{URL}?{query}").status_code == 400
 
 
+@pytest.mark.parametrize("url", [URL, "/api/v1/duplicate-candidates/"])
+@pytest.mark.parametrize("parameter", ["page", "page_size"])
+@pytest.mark.parametrize("value", ["1.0", "1.00", "+1", " 1 ", "01", "١"])
+def test_canonical_lists_reject_noncanonical_pagination_integers(
+    auth_client,
+    url,
+    parameter,
+    value,
+):
+    response = auth_client.get(url, {parameter: value})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert parameter in response.json()["error"]["fields"]
+
+
 @pytest.mark.parametrize("search", ["SMILE", "532123", "HELLO@", "clinic.example"])
 def test_search_matches_canonical_name_and_contacts(auth_client, business_factory, search):
     target = business_factory(
