@@ -66,7 +66,9 @@ def rebuild_business(*, business_id: UUID) -> Business:
 
     records = [
         membership.normalized_record
-        for membership in BusinessSourceMembership.objects.filter(business_id=business.id).select_related(
+        for membership in BusinessSourceMembership.objects.filter(
+            business_id=business.id
+        ).select_related(
             "normalized_record",
             "normalized_record__source_record",
             "normalized_record__source_record__source",
@@ -142,13 +144,7 @@ def _normalized_phones(records: Iterable[NormalizedSourceRecord]) -> list[str]:
 
 
 def _normalized_emails(records: Iterable[NormalizedSourceRecord]) -> list[str]:
-    return sorted(
-        {
-            email
-            for record in records
-            for email in normalize_emails(record.emails).values
-        }
-    )
+    return sorted({email for record in records for email in normalize_emails(record.emails).values})
 
 
 def _normalized_websites(records: Iterable[NormalizedSourceRecord]) -> list[str]:
