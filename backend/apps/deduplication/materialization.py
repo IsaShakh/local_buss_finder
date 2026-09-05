@@ -2,6 +2,8 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from uuid import UUID
 
+from django.core.exceptions import ValidationError
+
 from apps.businesses.models import Business, BusinessSourceMembership
 from apps.deduplication.identity import extract_official_domains
 from apps.normalization.rules.emails import normalize_emails
@@ -37,6 +39,16 @@ def select_primary_record(records: Iterable[NormalizedSourceRecord]) -> Normaliz
 
 def seed_business(*, normalized_record: NormalizedSourceRecord, owner_id: UUID) -> Business:
     """Create an active owner-scoped business and materialize its seed membership."""
+    normalized_record_owner_id = (
+        NormalizedSourceRecord.objects.filter(id=normalized_record.id)
+        .values_list("source_record__campaign__created_by_id", flat=True)
+        .get()
+    )
+    if normalized_record_owner_id != owner_id:
+        raise ValidationError(
+            {"normalized_record": "Business and normalized record must have the same owner."}
+        )
+
     business = Business.objects.create(owner_id=owner_id)
     BusinessSourceMembership.objects.create(
         business=business,

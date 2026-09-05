@@ -3,6 +3,7 @@ from uuid import UUID
 
 import pytest
 from django.contrib.gis.geos import Point
+from django.core.exceptions import ValidationError
 
 from apps.businesses.models import Business, BusinessSourceMembership
 from apps.deduplication.materialization import (
@@ -217,3 +218,19 @@ def test_rebuild_rejects_a_merged_business(owner, normalized_record_factory):
 
     with pytest.raises(ValueError, match="merged"):
         rebuild_business(business_id=merged.id)
+
+
+@pytest.mark.django_db
+def test_seed_business_rejects_a_normalized_record_owned_by_another_user(
+    owner, other_owner, normalized_record_factory
+):
+    """Catches seeding a tenant's business from another tenant's normalized data."""
+    normalized_record = normalized_record_factory(source_code="foreign-source")
+    business_count = Business.objects.count()
+    membership_count = BusinessSourceMembership.objects.count()
+
+    with pytest.raises(ValidationError, match="same owner"):
+        seed_business(normalized_record=normalized_record, owner_id=other_owner.id)
+
+    assert Business.objects.count() == business_count
+    assert BusinessSourceMembership.objects.count() == membership_count
