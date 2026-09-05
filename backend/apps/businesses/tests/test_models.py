@@ -20,11 +20,11 @@ def ordered_businesses(owner):
 
 
 @pytest.mark.django_db
-def test_canonical_models_initialize_safe_default_states(owner, records):
+def test_canonical_models_initialize_safe_default_states(owner, normalized_record_factory):
     business = create_business(owner)
     membership = BusinessSourceMembership.objects.create(
         business=business,
-        normalized_record=records.target.normalized_record,
+        normalized_record=normalized_record_factory(source_code="osm"),
     )
     left_business, right_business = ordered_businesses(owner)
     candidate = DuplicateCandidate.objects.create(
@@ -82,9 +82,11 @@ def test_active_businesses_exclude_merged_rows(owner):
 
 @pytest.mark.django_db
 def test_normalized_record_can_have_only_one_membership(owner, records):
-    BusinessSourceMembership.objects.create(
-        business=create_business(owner),
-        normalized_record=records.target.normalized_record,
+    assert (
+        BusinessSourceMembership.objects.filter(
+            normalized_record=records.target.normalized_record
+        ).count()
+        == 1
     )
 
     with pytest.raises(IntegrityError), transaction.atomic():
