@@ -113,6 +113,11 @@ export function BusinessesPage() {
           : 'Нет',
     },
     {
+      key: 'first_seen_at',
+      header: 'Впервые замечен',
+      render: (row) => new Intl.DateTimeFormat('ru-RU').format(new Date(row.first_seen_at)),
+    },
+    {
       key: 'last_seen_at',
       header: 'Последний раз найден',
       render: (row) => new Intl.DateTimeFormat('ru-RU').format(new Date(row.last_seen_at)),

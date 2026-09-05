@@ -139,6 +139,7 @@ describe('канонические бизнесы', () => {
       'rel',
       'noopener noreferrer',
     );
+    expect(screen.getByText('01.09.2026')).toBeInTheDocument();
     expect(screen.getByText('04.09.2026')).toBeInTheDocument();
   });
 
