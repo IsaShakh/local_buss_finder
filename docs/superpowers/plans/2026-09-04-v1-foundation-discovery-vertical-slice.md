@@ -2897,11 +2897,11 @@ class OvertureClient(Protocol):
     ) -> Iterator[dict[str, JSONValue]]: ...
 ```
 
-- [ ] **Step 1: Добавить реальные representative fixtures**
+- [x] **Step 1: Добавить реальные representative fixtures**
 
 `place_taxonomy.json` содержит полный минимально нужный shape: `id`, `version`, `names.primary`, `taxonomy.primary/hierarchy`, `basic_category`, `addresses`, `phones`, `websites`, `socials`, `emails`, `confidence`, `geometry`, `bbox`. `place_legacy_categories.json` заменяет taxonomy fields на `categories.primary/alternate`. Fixtures содержат вымышленные business/contact values и поле `_fixture_notice`, поэтому не распространяют реальные контакты.
 
-- [ ] **Step 2: Написать failing parser/contract tests**
+- [x] **Step 2: Написать failing parser/contract tests**
 
 ```python
 def test_overture_parser_prefers_new_taxonomy(overture_adapter, taxonomy_payload):
@@ -2938,7 +2938,7 @@ Discover test injects fake client and asserts request bbox/release, category fil
 
 Parser preserves provider order in `phones`, `emails`, `websites`; `socials` groups URLs by provider key in `raw_social_urls`. Missing collections become empty tuples/dict, never `None`. Address picks the first structured address exactly as a readable raw string while the complete address array remains in MinIO.
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_overture_adapter.py -q
@@ -2946,7 +2946,7 @@ docker compose run --rm backend pytest apps/discovery/tests/test_overture_adapte
 
 Expected: FAIL с отсутствующим `OvertureAdapter`.
 
-- [ ] **Step 4: Реализовать client wrapper и streaming adapter**
+- [x] **Step 4: Реализовать client wrapper и streaming adapter**
 
 Добавить `overturemaps==1.0.2` в `base.in` и перекомпилировать все три lockfiles exact commands из Task 2. Wrapper:
 
@@ -2966,11 +2966,11 @@ for batch in reader:
 
 Не материализовать всю Alanya выборку в list. Category filter применяется к parsed `taxonomy.primary`, `basic_category` или legacy `categories.primary` и пропускает только `DiscoveryRequest.external_categories`; пустой tuple отклонён domain contract до provider I/O. `resolve_dataset_version()` получает release через STAC один раз; orchestration записывает его в `CampaignSourceRun` и передаёт как `DiscoveryRequest.dataset_version`. Adapter использует это значение и не меняет его внутри iterator.
 
-- [ ] **Step 5: Классифицировать client failures**
+- [x] **Step 5: Классифицировать client failures**
 
 Timeout/network → `TransientSourceError("SOURCE_TIMEOUT")`; unknown release/schema → `PermanentSourceError("INVALID_SOURCE_PAYLOAD")`; invalid geometry не мешает raw storage, parser возвращает исходные числовые coordinates, а normalization преобразует их в `location=None` + `INVALID_COORDINATES`. Отсутствующие coordinates становятся `None` + `MISSING_COORDINATES`.
 
-- [ ] **Step 6: Проверить GREEN и общий adapter contract**
+- [x] **Step 6: Проверить GREEN и общий adapter contract**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_overture_adapter.py apps/discovery/tests/test_registry.py -q
@@ -2979,7 +2979,7 @@ docker compose run --rm backend ruff check apps/discovery
 
 Expected: PASS/exit 0. Никакого live S3/STAC call в обязательных tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/apps/discovery backend/tests/fixtures backend/requirements backend/config/settings

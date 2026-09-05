@@ -7,3 +7,4 @@ boto3==1.43.73
 redis==5.2.1
 gunicorn==23.0.0
 celery[redis]==5.5.3
+overturemaps==1.0.2

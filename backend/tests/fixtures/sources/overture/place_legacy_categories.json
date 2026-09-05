@@ -1,0 +1,43 @@
+{
+  "_fixture_notice": "Synthetic test data; not a real business or contact record.",
+  "id": "08f1a2b3c4d5e6f70000000000000002",
+  "version": 3,
+  "names": {
+    "primary": "Legacy Test Dental",
+    "common": {},
+    "rules": []
+  },
+  "categories": {
+    "primary": "dentist",
+    "alternate": [
+      "medical_clinic"
+    ]
+  },
+  "addresses": [
+    {
+      "freeform": "Oba Mah. Fixture Sok. No:2, Alanya",
+      "locality": "Alanya",
+      "region": "Antalya",
+      "postcode": "07460",
+      "country": "TR"
+    }
+  ],
+  "phones": [],
+  "websites": [],
+  "socials": [],
+  "emails": [],
+  "confidence": 0.81,
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      32.01,
+      36.55
+    ]
+  },
+  "bbox": {
+    "xmin": 32.01,
+    "ymin": 36.55,
+    "xmax": 32.01,
+    "ymax": 36.55
+  }
+}

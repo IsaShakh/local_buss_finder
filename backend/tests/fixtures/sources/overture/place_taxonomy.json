@@ -1,0 +1,61 @@
+{
+  "_fixture_notice": "Synthetic test data; not a real business or contact record.",
+  "id": "08f1a2b3c4d5e6f70000000000000001",
+  "version": 7,
+  "names": {
+    "primary": "Alanya Test Diş Kliniği",
+    "common": {
+      "tr": "Alanya Test Diş Kliniği"
+    },
+    "rules": []
+  },
+  "taxonomy": {
+    "primary": "dentist",
+    "hierarchy": [
+      "healthcare",
+      "medical_clinic",
+      "dentist"
+    ]
+  },
+  "basic_category": "medical_clinic",
+  "addresses": [
+    {
+      "freeform": "Saray Mah. Test Cad. No:1, Alanya",
+      "locality": "Alanya",
+      "region": "Antalya",
+      "postcode": "07400",
+      "country": "TR"
+    }
+  ],
+  "phones": [
+    "+90 242 000 00 01",
+    "+90 242 000 00 02"
+  ],
+  "websites": [
+    "https://alanya-dentist.example/",
+    "https://booking.alanya-dentist.example/"
+  ],
+  "socials": [
+    "https://www.instagram.com/alanya_test_dentist",
+    "https://www.facebook.com/alanya.test.dentist",
+    "https://instagram.com/alanya_test_dentist_en"
+  ],
+  "emails": [
+    "hello@alanya-dentist.example",
+    "booking@alanya-dentist.example"
+  ],
+  "confidence": 0.94,
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      32.001,
+      36.544
+    ]
+  },
+  "bbox": {
+    "xmin": 32.001,
+    "ymin": 36.544,
+    "xmax": 32.001,
+    "ymax": 36.544
+  }
+}

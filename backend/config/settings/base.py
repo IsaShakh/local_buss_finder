@@ -71,7 +71,9 @@ CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
 CELERY_TASK_IGNORE_RESULT = env.bool("CELERY_TASK_IGNORE_RESULT", default=True)
 CELERY_RESULT_BACKEND = None
 
-DISCOVERY_ADAPTERS = {}
+DISCOVERY_ADAPTERS = {
+    "overture": "apps.discovery.adapters.overture.OvertureAdapter",
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
