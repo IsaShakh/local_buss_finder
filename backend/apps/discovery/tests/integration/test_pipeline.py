@@ -1,5 +1,6 @@
 import pytest
 
+from apps.businesses.models import Business, BusinessSourceMembership
 from apps.campaigns.services import start_campaign
 from apps.discovery.services import run_campaign_synchronously
 from apps.sources.models import NormalizedSourceRecord, SourceRecord
@@ -32,5 +33,12 @@ def test_fixture_campaign_reaches_completed_with_raw_and_normalized_records(
     assert (
         NormalizedSourceRecord.objects.filter(source_record__campaign=alanya_campaign).count() == 4
     )
+    assert (
+        BusinessSourceMembership.objects.filter(
+            normalized_record__source_record__campaign=alanya_campaign
+        ).count()
+        == 4
+    )
+    assert Business.active.filter(owner=owner).count() == 3
     for record in SourceRecord.objects.filter(campaign=alanya_campaign):
         assert s3_store.get_json(record.raw_payload_key)
