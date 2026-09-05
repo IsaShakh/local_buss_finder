@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import traceback
 from datetime import UTC, datetime, timedelta
 from io import StringIO
 from uuid import UUID
@@ -9,6 +10,7 @@ import pytest
 from django.contrib.gis.geos import Point
 from django.core.management import CommandError, call_command
 from django.db import DatabaseError, IntegrityError, connection, connections
+from django.db.models import QuerySet
 
 from apps.businesses.models import Business, BusinessSourceMembership, DuplicateCandidate
 from apps.deduplication.services import resolve_normalized_record
@@ -223,7 +225,7 @@ def test_commit_failure_preserves_earlier_batches_and_can_resume(
 
     with monkeypatch.context() as patch:
         patch.setattr(connection, "commit", fail_second_commit)
-        with pytest.raises(DatabaseError, match="forced batch commit failure"):
+        with pytest.raises(CommandError, match="Business backfill failed"):
             run_backfill("--batch-size", "2")
 
     assert set(BusinessSourceMembership.objects.values_list("normalized_record_id", flat=True)) == {
@@ -254,7 +256,7 @@ def test_savepoint_rollback_failure_aborts_instead_of_reporting_rolled_back_succ
     with monkeypatch.context() as patch:
         patch.setattr(command_module(), "resolve_normalized_record", resolve)
         patch.setattr(connection, "savepoint_rollback", fail_rollback)
-        with pytest.raises(IntegrityError, match="forced record failure"):
+        with pytest.raises(CommandError, match="Business backfill failed"):
             run_backfill("--batch-size", "2")
 
     assert set(BusinessSourceMembership.objects.values_list("normalized_record_id", flat=True)) == {
@@ -264,6 +266,89 @@ def test_savepoint_rollback_failure_aborts_instead_of_reporting_rolled_back_succ
     summary, _ = run_backfill("--batch-size", "2")
     assert summary["examined"] == 2
     assert BusinessSourceMembership.objects.count() == 4
+
+
+def test_savepoint_entry_sql_failure_aborts_batch_without_success_summary(
+    normalized_record_factory,
+):
+    """Catches treating a failed SAVEPOINT statement as an isolated resolver failure."""
+    records = [normalized_record_factory(source_code=f"record-{index}") for index in range(4)]
+    output, errors = StringIO(), StringIO()
+    failed_entries = []
+
+    def fail_fourth_record_savepoint(execute, sql, params, many, context):
+        if (
+            sql.startswith("SAVEPOINT ")
+            and not connection.savepoint_ids
+            and BusinessSourceMembership.objects.count() == 3
+        ):
+            failed_entries.append(sql)
+            # Malformed SQL makes PostgreSQL abort the transaction during
+            # atomic.__enter__, before Django marks it as needing rollback.
+            return execute("SAVEPOINT", params, many, context)
+        return execute(sql, params, many, context)
+
+    with (
+        connection.execute_wrapper(fail_fourth_record_savepoint),
+        pytest.raises(CommandError, match="Business backfill failed"),
+    ):
+        call_command("deduplicate_businesses", "--batch-size", "2", stdout=output, stderr=errors)
+
+    assert len(failed_entries) == 1
+    assert output.getvalue() == errors.getvalue() == ""
+    assert set(BusinessSourceMembership.objects.values_list("normalized_record_id", flat=True)) == {
+        records[0].id,
+        records[1].id,
+    }
+    summary, _ = run_backfill("--batch-size", "2")
+    assert summary["examined"] == 2
+    assert BusinessSourceMembership.objects.count() == 4
+
+
+@pytest.mark.parametrize("failure_stage", ["iteration", "commit", "savepoint_entry"])
+def test_fatal_errors_are_sanitized_and_exit_nonzero(
+    failure_stage, normalized_record_factory, monkeypatch, capsys
+):
+    """Catches leaking fatal database details through exceptions, traceback chains, or CLI output."""
+    normalized_record_factory(source_code="fatal")
+    sentinel = "private-contact@example.test"
+    original_iterator = QuerySet.iterator
+
+    def fail(*args, **kwargs):
+        raise DatabaseError(sentinel)
+
+    def iterator(queryset, *args, **kwargs):
+        if queryset.model is NormalizedSourceRecord:
+            fail()
+        return original_iterator(queryset, *args, **kwargs)
+
+    if failure_stage == "iteration":
+        monkeypatch.setattr(QuerySet, "iterator", iterator)
+    else:
+        monkeypatch.setattr(
+            connection, "commit" if failure_stage == "commit" else "savepoint", fail
+        )
+
+    output, errors = StringIO(), StringIO()
+    with pytest.raises(CommandError) as raised:
+        call_command("deduplicate_businesses", stdout=output, stderr=errors)
+
+    assert str(raised.value) == "Business backfill failed. No success summary is available."
+    assert raised.value.__suppress_context__ is True
+    assert raised.value.__cause__ is None
+    assert sentinel not in "".join(traceback.format_exception(raised.value))
+    assert output.getvalue() == errors.getvalue() == ""
+
+    command = command_module().Command(stdout=output, stderr=errors)
+    with pytest.raises(SystemExit) as exited:
+        command.run_from_argv(["manage.py", "deduplicate_businesses"])
+
+    assert exited.value.code == 1
+    assert output.getvalue() == ""
+    assert "Business backfill failed" in errors.getvalue()
+    captured = capsys.readouterr()
+    assert sentinel not in output.getvalue() + errors.getvalue() + captured.out + captured.err
+    assert not BusinessSourceMembership.objects.exists()
 
 
 def test_dry_run_restores_existing_materialization_and_suppresses_events(

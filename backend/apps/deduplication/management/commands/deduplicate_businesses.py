@@ -26,6 +26,18 @@ class Command(BaseCommand):
         if batch_size <= 0:
             raise CommandError("--batch-size must be a positive integer.")
 
+        try:
+            summary = self._backfill(options)
+        except Exception:  # noqa: BLE001 - sanitize all fatal errors at the CLI boundary
+            # Fatal database errors can include contact values or SQL details.
+            # Suppress the original exception chain as well as its message.
+            raise CommandError(
+                "Business backfill failed. No success summary is available."
+            ) from None
+        self.stdout.write(json.dumps(summary))
+
+    def _backfill(self, options):
+        batch_size = options["batch_size"]
         records = NormalizedSourceRecord.objects.filter(business_membership__isnull=True)
         if options["owner"] is not None:
             records = records.filter(source_record__campaign__created_by_id=options["owner"])
@@ -48,15 +60,18 @@ class Command(BaseCommand):
                     with transaction.atomic():
                         for record_id in batch:
                             summary["examined"] += 1
+                            entered_savepoint = False
                             try:
                                 # Catch only outside this savepoint: even failures
                                 # after resolver writes must roll back the whole row.
                                 with transaction.atomic():
+                                    entered_savepoint = True
                                     outcome = resolve_normalized_record(record_id)
                             except Exception as error:
-                                if transaction.get_rollback():
-                                    # The savepoint could not restore a usable
-                                    # transaction; abort so the entire batch rolls back.
+                                if not entered_savepoint or transaction.get_rollback():
+                                    # Entry failures may abort PostgreSQL without
+                                    # setting Django's rollback flag. Only continue
+                                    # after an entered savepoint rolled back safely.
                                     raise
                                 summary["failures"] += 1
                                 self.stderr.write(f"Failed {record_id}: {type(error).__name__}")
@@ -73,4 +88,4 @@ class Command(BaseCommand):
                 if dry_run:
                     # Discard both database writes and deferred on_commit events.
                     transaction.set_rollback(True)
-        self.stdout.write(json.dumps(summary))
+        return summary
