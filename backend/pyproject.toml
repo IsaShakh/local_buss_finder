@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+addopts = ["--ds=config.settings.testing"]
+python_files = ["test_*.py"]
+testpaths = ["apps"]
+markers = ["integration: requires isolated real Redis/Garage/PostGIS"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100

@@ -1,0 +1,53 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: lbi_e2e
+      POSTGRES_USER: lbi_e2e
+      POSTGRES_PASSWORD: lbi-e2e-only
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  garage:
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: GK11111111111111111111111111111111
+      GARAGE_DEFAULT_SECRET_KEY: garage-e2e-only-secret-key
+      GARAGE_DEFAULT_BUCKET: lbi-e2e
+    ports: !reset []
+
+  backend:
+    environment: &e2e-environment
+      DJANGO_SETTINGS_MODULE: config.settings.testing
+      DATABASE_URL: postgis://lbi_e2e:lbi-e2e-only@postgres:5432/lbi_e2e
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_TASK_IGNORE_RESULT: "true"
+      S3_ENDPOINT_URL: http://garage:3900
+      S3_ACCESS_KEY_ID: GK11111111111111111111111111111111
+      S3_SECRET_ACCESS_KEY: garage-e2e-only-secret-key
+      S3_BUCKET_NAME: lbi-e2e
+      S3_REGION_NAME: garage
+      S3_FORCE_PATH_STYLE: "true"
+      DISCOVERY_USE_FIXTURES: "1"
+      E2E_FIXTURE_CREDENTIALS: "1"
+      DJANGO_SUPERUSER_USERNAME: owner
+      DJANGO_SUPERUSER_PASSWORD: e2e-password
+      SENTRY_DSN: ""
+    ports: !reset []
+
+  celery-discovery:
+    environment: *e2e-environment
+
+  celery-normalization:
+    environment: *e2e-environment
+
+  frontend:
+    ports: !reset []
+
+  nginx:
+    build:
+      args:
+        VITE_SENTRY_DSN: ""
+    ports: !override
+      - "127.0.0.1:8081:80"
