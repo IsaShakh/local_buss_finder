@@ -163,6 +163,17 @@ class BusinessSourceMembership(TimestampedUUIDModel):
             )
         ]
 
+    def clean(self) -> None:
+        super().clean()
+        if self.business_id is None or self.normalized_record_id is None:
+            return
+
+        normalized_record_owner_id = self.normalized_record.source_record.campaign.created_by_id
+        if self.business.owner_id != normalized_record_owner_id:
+            raise ValidationError(
+                {"normalized_record": "Business and normalized record must have the same owner."}
+            )
+
 
 class DuplicateCandidate(TimestampedUUIDModel):
     class Status(models.TextChoices):
@@ -229,6 +240,10 @@ class DuplicateCandidate(TimestampedUUIDModel):
                 name="duplicate_candidate_not_self_pair",
             ),
             models.CheckConstraint(
+                condition=models.Q(left_business__lt=models.F("right_business")),
+                name="duplicate_candidate_ordered_pair",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(score__gte=0) & models.Q(score__lte=100),
                 name="duplicate_candidate_score_range",
             ),
@@ -244,6 +259,12 @@ class DuplicateCandidate(TimestampedUUIDModel):
 
         if self.left_business_id == self.right_business_id:
             errors["right_business"] = "A duplicate candidate must compare two businesses."
+        elif (
+            self.left_business_id
+            and self.right_business_id
+            and (str(self.left_business_id) > str(self.right_business_id))
+        ):
+            errors["right_business"] = "Candidate businesses must use lexical UUID order."
 
         for field_name, business in (
             ("left_business", self.left_business),

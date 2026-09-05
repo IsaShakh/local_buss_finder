@@ -95,6 +95,17 @@ def test_normalized_record_can_have_only_one_membership(owner, records):
 
 
 @pytest.mark.django_db
+def test_membership_rejects_a_normalized_record_owned_by_another_user(owner, records):
+    membership = BusinessSourceMembership(
+        business=create_business(owner),
+        normalized_record=records.foreign.normalized_record,
+    )
+
+    with pytest.raises(ValidationError, match="same owner"):
+        membership.full_clean()
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize("score", (-1, 101))
 def test_membership_rejects_scores_outside_zero_to_one_hundred(owner, records, score):
     membership = BusinessSourceMembership(
@@ -136,6 +147,31 @@ def test_duplicate_candidate_pair_is_unique_when_written_in_canonical_order(owne
             owner=owner,
             left_business=left_business,
             right_business=right_business,
+        )
+
+
+@pytest.mark.django_db
+def test_candidate_rejects_a_reverse_order_pair_at_model_validation(owner):
+    left_business, right_business = ordered_businesses(owner)
+    candidate = DuplicateCandidate(
+        owner=owner,
+        left_business=right_business,
+        right_business=left_business,
+    )
+
+    with pytest.raises(ValidationError, match="lexical UUID order"):
+        candidate.full_clean()
+
+
+@pytest.mark.django_db
+def test_candidate_database_rejects_a_reverse_order_pair(owner):
+    left_business, right_business = ordered_businesses(owner)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        DuplicateCandidate.objects.create(
+            owner=owner,
+            left_business=right_business,
+            right_business=left_business,
         )
 
 
