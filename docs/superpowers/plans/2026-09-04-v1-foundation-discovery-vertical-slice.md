@@ -3416,7 +3416,7 @@ def normalize_source_record(self, source_record_id: str) -> None: ...
 
 `make_delivery_token` возвращает `{task_id}:{retries}`; fallback `direct:{retries}` разрешён только для прямого unit-вызова `.run()`, production Celery request обязан иметь task ID. `retry_or_requeue` вызывает `task.retry`, а transport `OperationalError` переводит в `Reject(requeue=True)`; все infrastructure и business retry paths обязаны идти через него. `consume_source_retry` и `consume_normalization_retry` принимают token и возвращают `True`, только если business retry разрешён. Первое решение для token и увеличение соответствующего durable counter сохраняются одной transaction в `PipelineRetryReservation`; повтор token возвращает прежнее решение без нового списания. `False` означает, что лимит уже исчерпан. Celery `request.retries` участвует только в token/backoff и никогда напрямую не определяет provider/storage exhaustion.
 
-- [ ] **Step 1: Написать failing campaign start API test**
+- [x] **Step 1: Написать failing campaign start API test**
 
 ```python
 @pytest.mark.django_db(transaction=True)
@@ -3444,7 +3444,7 @@ def test_starting_same_campaign_twice_is_rejected(auth_client, running_campaign)
 
 Test вручную выполняет captured on-commit callback; assertion внутри capture context доказывает, что task не отправлена до commit boundary.
 
-- [ ] **Step 2: Запустить start RED**
+- [x] **Step 2: Запустить start RED**
 
 ```bash
 docker compose run --rm backend pytest apps/campaigns/tests/test_api.py -k start -q
@@ -3452,11 +3452,11 @@ docker compose run --rm backend pytest apps/campaigns/tests/test_api.py -k start
 
 Expected: FAIL с 404 для `/start/`.
 
-- [ ] **Step 3: Реализовать atomic start transition**
+- [x] **Step 3: Реализовать atomic start transition**
 
 `start_campaign` делает `select_for_update()`, проверяет owner/status/sources и повторно разрешает non-empty mappings для каждого source (защита от configuration drift после создания draft). Только затем он создаёт `CampaignSourceRun`, устанавливает `total_jobs`, `status=queued` и через `transaction.on_commit` вызывает injected `enqueue(campaign_id)`. При пустом mapping transaction остаётся `draft` и API возвращает 409 `SOURCE_HAS_NO_ACTIVE_MAPPINGS`. Worker атомарно переводит campaign `queued → running` ровно один раз; повторный delivery для `running`/terminal campaign является no-op. Endpoint возвращает 202 и не знает Celery task ID.
 
-- [ ] **Step 4: Написать failing source pipeline test**
+- [x] **Step 4: Написать failing source pipeline test**
 
 ```python
 @pytest.mark.django_db(transaction=True)
@@ -3693,7 +3693,7 @@ def test_exhausted_source_waits_for_its_pending_record_before_terminal_status(
 
 `running_source_run_with_pending_record` создаёт один уже посчитанный `pending` record (`stored_records=1`) и согласованные campaign counters. Повтор conflict/exhaustion cases сравнивает неизменный tuple counters и количество rows.
 
-- [ ] **Step 5: Запустить pipeline RED**
+- [x] **Step 5: Запустить pipeline RED**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_services.py apps/discovery/tests/test_tasks.py -q
@@ -3701,7 +3701,7 @@ docker compose run --rm backend pytest apps/discovery/tests/test_services.py app
 
 Expected: FAIL с отсутствующими orchestration service/task wrappers и retry services.
 
-- [ ] **Step 6: Реализовать synchronous orchestration core**
+- [x] **Step 6: Реализовать synchronous orchestration core**
 
 `run_source_discovery_now`:
 
@@ -3729,7 +3729,7 @@ docker compose run --rm backend pytest apps/discovery/tests/test_services.py -q
 
 Expected: service tests PASS; `apps/discovery/tests/test_tasks.py` ещё не объявляется зелёным.
 
-- [ ] **Step 7: Написать failing normalization counter/finalization tests**
+- [x] **Step 7: Написать failing normalization counter/finalization tests**
 
 ```python
 @pytest.mark.django_db(transaction=True)
@@ -3941,7 +3941,7 @@ def test_rejected_record_is_processed_but_not_failed(campaign_with_ready_runs):
     assert try_finalize_campaign(campaign.id) == "completed"
 ```
 
-- [ ] **Step 8: Запустить finalization RED**
+- [x] **Step 8: Запустить finalization RED**
 
 ```bash
 docker compose run --rm backend pytest \
@@ -3953,7 +3953,7 @@ docker compose run --rm backend pytest \
 
 Expected: FAIL с отсутствующими task/progress functions.
 
-- [ ] **Step 9: Реализовать task wrappers и durable finalization**
+- [x] **Step 9: Реализовать task wrappers и durable finalization**
 
 В `campaigns.models` и migration `0002_pipeline_retry_reservation.py` добавить `PipelineRetryReservation`: UUID `id`, FK `campaign`, `scope` choices `source_discovery|source_normalization`, UUID `work_id`, `delivery_token=CharField(max_length=128)`, `allowed=BooleanField`, timestamps; `UniqueConstraint(fields=["scope", "work_id", "delivery_token"], name="uniq_pipeline_retry_delivery")`, index `(campaign, scope, created_at)` и `CheckConstraint` на два разрешённых scope. `delivery_token` не содержит secrets и строится как `{self.request.id or 'direct'}:{self.request.retries}`. Durable counters уже созданы в Task 10 (`CampaignSourceRun.source_retry_count`) и Task 12 (`SourceRecord.normalization_retry_count`); migration `0002` добавляет только reservation ledger и не дублирует эти columns.
 
@@ -3980,11 +3980,11 @@ ready = run.discovery_finished_at is not None and processed == run.stored_record
 
 Campaign finalization requires `all(run.ready and run.status in terminal_statuses)`. A ready run with `failed_records > 0` or an operational error after some stored records becomes `completed_with_errors`; rejected-only records do not make it an error. Zero stored records is `completed` if every run completed normally, `completed_with_errors` if at least one run is `completed_with_errors` or `failed` but another completed, and `failed` only when every enabled run is `failed`. `run_discovery_campaign` performs the single `queued → running` transition, then enqueues each still-`pending` source run; repeat delivery never creates a second run or increments jobs.
 
-- [ ] **Step 10: Реализовать progress endpoint**
+- [x] **Step 10: Реализовать progress endpoint**
 
 `GET /api/v1/campaigns/{id}/progress/` возвращает exact response из spec, агрегируя rows одним query/prefetch. Status labels не переводятся API. `get_campaign_progress` проверяет owner.
 
-- [ ] **Step 11: Проверить GREEN, routing и restart durability**
+- [x] **Step 11: Проверить GREEN, routing и restart durability**
 
 ```bash
 docker compose run --rm backend python manage.py migrate
@@ -3998,7 +3998,7 @@ docker compose run --rm backend pytest apps/campaigns/tests/test_progress.py -q
 
 Expected: tests PASS; workers слушают только свои queues; progress DB assertions неизменны после restart.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add backend/apps/campaigns backend/apps/discovery backend/apps/normalization backend/apps/sources backend/config backend/conftest.py

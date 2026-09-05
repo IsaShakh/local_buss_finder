@@ -1,15 +1,22 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from uuid import UUID
 
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import transaction
 
 from apps.campaigns.domain import CampaignValidationError, CreateCampaignCommand
-from apps.campaigns.models import CampaignCategory, CampaignSource, DiscoveryCampaign
+from apps.campaigns.models import (
+    CampaignCategory,
+    CampaignSource,
+    CampaignSourceRun,
+    DiscoveryCampaign,
+)
 from apps.geography.models import SearchArea
 from apps.sources.models import Source
 from apps.taxonomy.models import BusinessCategory
 from apps.taxonomy.services import resolve_external_categories
+
+type Enqueue = Callable[[UUID], None]
 
 
 def _unique_ids(values: Iterable[UUID]) -> tuple[UUID, ...]:
@@ -89,4 +96,53 @@ def create_campaign(
             for category_id in category_ids
         ]
     )
+    return campaign
+
+
+@transaction.atomic
+def start_campaign(
+    *,
+    campaign_id: UUID,
+    actor: AbstractBaseUser,
+    enqueue: Enqueue,
+) -> DiscoveryCampaign:
+    campaign = DiscoveryCampaign.objects.select_for_update().get(id=campaign_id)
+    if campaign.created_by_id != actor.pk:
+        raise CampaignValidationError(
+            "CAMPAIGN_NOT_FOUND",
+            "Кампания не найдена.",
+        )
+    if campaign.status != DiscoveryCampaign.Status.DRAFT:
+        raise CampaignValidationError(
+            "CAMPAIGN_NOT_DRAFT",
+            "Запустить можно только черновик кампании.",
+        )
+
+    selections = list(
+        CampaignSource.objects.filter(campaign=campaign, is_enabled=True)
+        .select_related("source")
+        .order_by("priority", "created_at", "id")
+    )
+    if not selections:
+        raise CampaignValidationError(
+            "NO_SOURCES_SELECTED",
+            "Выберите хотя бы один источник.",
+            {"source_ids": ["Выберите хотя бы один источник."]},
+        )
+    category_ids = tuple(campaign.categories.values_list("id", flat=True))
+    for selection in selections:
+        if not resolve_external_categories(selection.source_id, category_ids):
+            raise CampaignValidationError(
+                "SOURCE_HAS_NO_ACTIVE_MAPPINGS",
+                "Для источника нет активных сопоставлений категорий.",
+                {"source_ids": ["Для источника нет активных сопоставлений категорий."]},
+            )
+
+    CampaignSourceRun.objects.bulk_create(
+        [CampaignSourceRun(campaign=campaign, source=selection.source) for selection in selections]
+    )
+    campaign.status = DiscoveryCampaign.Status.QUEUED
+    campaign.total_jobs = len(selections)
+    campaign.save(update_fields=("status", "total_jobs", "updated_at"))
+    transaction.on_commit(lambda: enqueue(campaign.id))
     return campaign

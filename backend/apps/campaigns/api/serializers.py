@@ -140,3 +140,33 @@ class CampaignSerializer(serializers.ModelSerializer):
             error.detail,
             fields=error.fields,
         ) from error
+
+
+class CampaignTotalsSerializer(serializers.Serializer):
+    jobs = serializers.IntegerField(read_only=True)
+    completed_jobs = serializers.IntegerField(read_only=True)
+    failed_jobs = serializers.IntegerField(read_only=True)
+    discovered = serializers.IntegerField(read_only=True)
+    stored = serializers.IntegerField(read_only=True)
+    normalized = serializers.IntegerField(read_only=True)
+    rejected = serializers.IntegerField(read_only=True)
+    failed_records = serializers.IntegerField(read_only=True)
+
+
+class SourceProgressSerializer(serializers.Serializer):
+    code = serializers.CharField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    dataset_version = serializers.CharField(read_only=True, allow_null=True)
+    discovered = serializers.IntegerField(read_only=True)
+    stored = serializers.IntegerField(read_only=True)
+    normalized = serializers.IntegerField(read_only=True)
+    rejected = serializers.IntegerField(read_only=True)
+    failed_records = serializers.IntegerField(read_only=True)
+
+
+class CampaignProgressSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    totals = CampaignTotalsSerializer(read_only=True)
+    sources = SourceProgressSerializer(many=True, read_only=True)

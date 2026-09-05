@@ -235,3 +235,31 @@ def test_campaign_list_query_count_is_constant_for_ten_rows(
 
     assert response.status_code == 200
     assert response.json()["count"] == 10
+
+
+@pytest.mark.django_db
+def test_start_draft_campaign_queues_work_after_commit(
+    auth_client,
+    campaign,
+    enqueue_spy,
+    django_capture_on_commit_callbacks,
+):
+    with django_capture_on_commit_callbacks(execute=False) as callbacks:
+        response = auth_client.post(f"/api/v1/campaigns/{campaign.id}/start/")
+        assert enqueue_spy.ids == []
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    campaign.refresh_from_db()
+    assert campaign.status == DiscoveryCampaign.Status.QUEUED
+    assert len(callbacks) == 1
+    callbacks[0]()
+    assert enqueue_spy.ids == [str(campaign.id)]
+
+
+@pytest.mark.django_db
+def test_starting_same_campaign_twice_is_rejected(auth_client, running_campaign):
+    response = auth_client.post(f"/api/v1/campaigns/{running_campaign.id}/start/")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CAMPAIGN_NOT_DRAFT"

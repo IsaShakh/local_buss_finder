@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -9,6 +10,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from rest_framework.test import APIClient
+
+
+@dataclass
+class EnqueueSpy:
+    ids: list[str] = field(default_factory=list)
+
+    def __call__(self, campaign_id) -> None:
+        self.ids.append(str(campaign_id))
 
 
 @pytest.fixture
@@ -141,6 +150,24 @@ def campaign(alanya_campaign):
 
 
 @pytest.fixture
+def running_campaign(alanya_campaign):
+    from apps.campaigns.models import DiscoveryCampaign
+
+    alanya_campaign.status = DiscoveryCampaign.Status.RUNNING
+    alanya_campaign.save(update_fields=("status",))
+    return alanya_campaign
+
+
+@pytest.fixture
+def enqueue_spy(monkeypatch):
+    from apps.campaigns.api import views
+
+    spy = EnqueueSpy()
+    monkeypatch.setattr(views, "enqueue_campaign", spy, raising=False)
+    return spy
+
+
+@pytest.fixture
 def source_run(alanya_campaign, osm_source):
     from apps.campaigns.models import CampaignSourceRun
 
@@ -148,6 +175,133 @@ def source_run(alanya_campaign, osm_source):
         campaign=alanya_campaign,
         source=osm_source,
     )[0]
+
+
+@pytest.fixture
+def single_source_draft_campaign(owner, alanya_area, osm_source):
+    from apps.campaigns.domain import CreateCampaignCommand
+    from apps.campaigns.services import create_campaign
+
+    call_command("seed_taxonomy")
+    return create_campaign(
+        actor=owner,
+        command=CreateCampaignCommand(
+            name="Аланья — OSM",
+            search_area_id=alanya_area.id,
+            source_ids=(osm_source.id,),
+            category_ids=(),
+        ),
+    )
+
+
+@pytest.fixture
+def running_source_run(single_source_draft_campaign, owner):
+    from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+    from apps.campaigns.services import start_campaign
+
+    campaign = start_campaign(
+        campaign_id=single_source_draft_campaign.id,
+        actor=owner,
+        enqueue=lambda _: None,
+    )
+    now = datetime.now(UTC)
+    campaign.status = DiscoveryCampaign.Status.RUNNING
+    campaign.started_at = now
+    campaign.save(update_fields=("status", "started_at", "updated_at"))
+    run = CampaignSourceRun.objects.get(campaign=campaign)
+    run.status = CampaignSourceRun.Status.RUNNING
+    run.started_at = now
+    run.source.max_retries = 3
+    run.source.save(update_fields=("max_retries", "updated_at"))
+    run.save(update_fields=("status", "started_at", "updated_at"))
+    return run
+
+
+def _create_pending_source_record(source_run, *, number: int):
+    from django.contrib.gis.geos import Point
+
+    from apps.sources.models import SourceRecord
+
+    return SourceRecord.objects.create(
+        campaign=source_run.campaign,
+        source_run=source_run,
+        source=source_run.source,
+        external_id=f"fixture/{number}",
+        source_dataset_version="fixture-2026-09",
+        source_url=f"https://example.test/{number}",
+        attribution="fixture",
+        license_code="fixture-only",
+        raw_name=f"Alanya Smile {number}",
+        raw_category="amenity=dentist",
+        raw_address="Saray, Alanya",
+        raw_phones=["0532 123 45 67"],
+        raw_emails=[f"info{number}@example.test"],
+        raw_websites=[f"https://example.test/{number}"],
+        raw_social_urls={},
+        raw_location=Point(32.0, 36.55, srid=4326),
+        raw_payload_key=f"raw/fixture/{number}.json.gz",
+        raw_payload_sha256=f"{number:064x}",
+        raw_payload_bytes=42,
+        payload_schema_version="1",
+        checksum=f"{number:064x}",
+        fetched_at=datetime.now(UTC),
+    )
+
+
+def _set_ready_run_counters(source_run, *, stored_records: int) -> None:
+    from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+
+    now = datetime.now(UTC)
+    CampaignSourceRun.objects.filter(id=source_run.id).update(
+        status=CampaignSourceRun.Status.NORMALIZING,
+        source_dataset_version="fixture-2026-09",
+        discovered_records=stored_records,
+        stored_records=stored_records,
+        discovery_finished_at=now,
+        updated_at=now,
+    )
+    DiscoveryCampaign.objects.filter(id=source_run.campaign_id).update(
+        status=DiscoveryCampaign.Status.RUNNING,
+        raw_records_found=stored_records,
+        updated_at=now,
+    )
+    source_run.refresh_from_db()
+
+
+@pytest.fixture
+def running_source_run_with_pending_record(running_source_run):
+    _create_pending_source_record(running_source_run, number=1)
+    from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+
+    CampaignSourceRun.objects.filter(id=running_source_run.id).update(
+        discovered_records=1,
+        stored_records=1,
+    )
+    DiscoveryCampaign.objects.filter(id=running_source_run.campaign_id).update(
+        raw_records_found=1,
+    )
+    running_source_run.refresh_from_db()
+    return running_source_run
+
+
+@pytest.fixture
+def source_run_with_two_records(running_source_run):
+    _create_pending_source_record(running_source_run, number=1)
+    _create_pending_source_record(running_source_run, number=2)
+    _set_ready_run_counters(running_source_run, stored_records=2)
+    return running_source_run
+
+
+@pytest.fixture
+def ready_run_with_one_pending_record(running_source_run):
+    _create_pending_source_record(running_source_run, number=1)
+    _set_ready_run_counters(running_source_run, stored_records=1)
+    return running_source_run
+
+
+@pytest.fixture
+def one_pending_record(ready_run_with_one_pending_record):
+    return ready_run_with_one_pending_record.records.get()
 
 
 @pytest.fixture

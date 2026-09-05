@@ -188,3 +188,38 @@ class CampaignSourceRun(TimestampedUUIDModel):
 
     def __str__(self) -> str:
         return f"{self.campaign.name}: {self.source.code} ({self.status})"
+
+
+class PipelineRetryReservation(TimestampedUUIDModel):
+    class Scope(models.TextChoices):
+        SOURCE_DISCOVERY = "source_discovery", "Source discovery"
+        SOURCE_NORMALIZATION = "source_normalization", "Source normalization"
+
+    campaign = models.ForeignKey(
+        DiscoveryCampaign,
+        on_delete=models.CASCADE,
+        related_name="retry_reservations",
+    )
+    scope = models.CharField(max_length=32, choices=Scope.choices)
+    work_id = models.UUIDField()
+    delivery_token = models.CharField(max_length=128)
+    allowed = models.BooleanField()
+
+    class Meta:
+        ordering = ("created_at", "id")
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=("scope", "work_id", "delivery_token"),
+                name="uniq_pipeline_retry_delivery",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scope__in=("source_discovery", "source_normalization")),
+                name="pipeline_retry_scope_valid",
+            ),
+        ]
+        indexes: ClassVar = [
+            models.Index(
+                fields=("campaign", "scope", "created_at"),
+                name="pipeline_retry_campaign_scope",
+            )
+        ]
