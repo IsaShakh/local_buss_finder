@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "corsheaders",
     "rest_framework",
+    "apps.businesses.apps.BusinessesConfig",
     "apps.campaigns.apps.CampaignsConfig",
     "apps.discovery.apps.DiscoveryConfig",
     "apps.geography.apps.GeographyConfig",

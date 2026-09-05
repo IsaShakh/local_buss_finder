@@ -4103,7 +4103,7 @@ class NormalizedSourceRecordDetail(TypedDict):
 
 Raw payload body, object/presigned URL и S3 credentials отсутствуют в detail response.
 
-- [ ] **Step 1: Написать failing pagination/filter tests**
+- [x] **Step 1: Написать failing pagination/filter tests**
 
 ```python
 @pytest.mark.django_db
@@ -4200,7 +4200,7 @@ def test_anonymous_list_is_forbidden(api_client):
     assert api_client.get("/api/v1/source-records/").status_code == 403
 ```
 
-- [ ] **Step 2: Написать failing dashboard summary test**
+- [x] **Step 2: Написать failing dashboard summary test**
 
 ```python
 @pytest.mark.django_db
@@ -4222,7 +4222,7 @@ def test_dashboard_summary_uses_persisted_campaign_and_record_counts(auth_client
     }
 ```
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/businesses/tests -q
@@ -4230,13 +4230,13 @@ docker compose run --rm backend pytest apps/businesses/tests -q
 
 Expected: FAIL с 404/absent app.
 
-- [ ] **Step 4: Реализовать querysets/serializers**
+- [x] **Step 4: Реализовать querysets/serializers**
 
 List queryset начинает с `NormalizedSourceRecord`, ограничивает `source_record__campaign__created_by=request.user`, делает `select_related` source record/source/category/district и возвращает только materialized normalized rows (rejected/pending raw records не возвращаются). Поэтому query parameter `normalization_status` удалён из API и UI; статус списка всегда `normalized`. `campaign` принимает UUID, `source` — source code, `category` — category slug. Search использует `normalized_name__icontains` в slice; trigram ranking откладывается до canonical search plan. Allowed ordering: `display_name`, `-fetched_at`, `fetched_at`; неизвестный filter/ordering и `page_size > 100` → 400 через strict query serializer и `SourceRecordPagination(default=50, max=100)`.
 
 Detail использует ту же owner scope и отдаёт exact `SourceRecordDetail`, включая raw contact collections, checksum, payload key/bytes, dataset version, attribution, license, warnings и normalized fields. Raw body скачивается только внутренним service/management command.
 
-- [ ] **Step 5: Проверить query counts и GREEN**
+- [x] **Step 5: Проверить query counts и GREEN**
 
 ```bash
 docker compose run --rm backend pytest apps/businesses/tests -q
@@ -4246,7 +4246,7 @@ docker compose run --rm backend ruff check apps/businesses
 
 Expected: PASS; list of 50 rows делает bounded query count (зафиксировать ≤ 5).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/apps/businesses backend/config
