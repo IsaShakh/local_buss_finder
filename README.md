@@ -11,45 +11,142 @@ Alanya и остаётся географически настраиваемым
 
 ## Требования
 
+- Git;
 - Docker Engine или Docker Desktop с запущенным daemon;
-- Docker Compose 2.24.4 или новее;
-- Python 3 для запуска локального infrastructure contract test.
+- Docker Compose `2.24.0` или новее;
+- Node.js `24.x` и bundled npm для локального Playwright E2E;
+- Python 3 для infrastructure contract test.
 
-Приложение и его зависимости будут собираться в контейнерах, поэтому системные
-Python и Node.js не используются как production runtime.
+Проверка prerequisites:
 
-## Первый запуск инфраструктуры
+```bash
+git --version
+docker version
+docker compose version --short
+node --version
+npm --version
+```
+
+Backend, frontend и их runtime-зависимости собираются в контейнерах. Локальный
+Node.js нужен только для Playwright, а локальный Python — только для
+`tests/infra`.
+
+## Первый запуск
 
 ```bash
 cp .env.example .env
 make compose-check
 make infra-test
 make infra-up
-make infra-ps
 ```
 
-Локальные адреса первого этапа:
+Создайте владельца, не помещая пароль в shell history или `.env`:
 
-- PostgreSQL/PostGIS: `127.0.0.1:5432`;
-- Redis: `127.0.0.1:6379`;
+```zsh
+export DJANGO_SUPERUSER_USERNAME=owner
+read -r -s "DJANGO_SUPERUSER_PASSWORD?Пароль локального владельца: "
+export DJANGO_SUPERUSER_PASSWORD
+./infrastructure/scripts/bootstrap-dev.sh --require-owner
+unset DJANGO_SUPERUSER_PASSWORD DJANGO_SUPERUSER_USERNAME
+make up
+```
+
+`bootstrap_environment` применяет migrations, идемпотентно загружает географию,
+источники и таксономию, затем создаёт или обновляет owner. Публичная пара
+`owner` / `e2e-password` разрешена только в изолированном fixture E2E и запрещена
+для development/production.
+
+Локальные адреса:
+
+- dashboard через production nginx: `http://127.0.0.1:8080`;
+- Django API: `http://127.0.0.1:8000/api/v1/`;
+- frontend dev server: `http://127.0.0.1:5173`;
 - Garage S3 API: `http://127.0.0.1:3900`;
-- Garage admin API: `http://127.0.0.1:3903`.
+- Garage admin API: `http://127.0.0.1:3903`;
+- PostgreSQL/PostGIS: `127.0.0.1:5432`;
+- Redis: `127.0.0.1:6379`.
 
-Garage запускается в single-node режиме только для разработки и E2E. Backend
-использует общий S3-compatible contract, поэтому production storage выбирается
-отдельно и не зависит от локального Garage.
+Garage не предоставляет MinIO Console: для локальной диагностики используйте
+S3-compatible client и `docker compose logs garage`. Bucket закрыт и доступен
+только по credentials из локального `.env`.
 
-PostgreSQL/PostGIS image собирается локально для текущей архитектуры из
-официального PostgreSQL 17.11 и multi-arch PostGIS 3.6 layer. Оба исходных
-manifest закреплены digest-ами; сценарий одинаково работает на `amd64` и
-Apple Silicon без эмуляции.
+## Проверки
+
+```bash
+make compose-check infra-test
+make backend-check backend-test
+make frontend-check frontend-test
+make storage-integration
+make verify
+make e2e
+```
+
+`make e2e` создаёт отдельный Compose project
+`local-business-intelligence-e2e`, использует отдельные PostGIS/Redis/Garage
+volumes, fixture adapters и публичного fixture owner. После успеха или ошибки
+контейнеры и volumes только этого E2E project удаляются; development data не
+затрагиваются.
+
+## Live Overture и OpenStreetMap
+
+Fixture adapters доступны только с `config.settings.testing` и не могут быть
+включены в development/production. Обычный запуск использует live Overture и
+OSM adapters, но bootstrap и проверки к провайдерам не обращаются. Live-запрос
+начинается только после осознанного выбора Overture Maps и/или OpenStreetMap при
+создании кампании и нажатия «Запустить кампанию».
+
+Перед любым разрешённым live OSM sample задайте в локальном `.env`:
+
+- `OVERPASS_URL` — HTTPS endpoint, которым вы вправе пользоваться;
+- `SOURCE_USER_AGENT` — product/version и реальный контакт.
+
+В production дополнительно обязателен `OSM_DATASET_VERSION` — стабильный
+идентификатор снимка/набора данных. В development без него сохраняется
+временный retrieval marker, поэтому для воспроизводимого sample значение лучше
+задавать явно. Overture не требует локального credential, но его live download
+также выполняйте только после проверки лицензии, attribution и допустимого
+объёма данных.
+
+Не используйте публичные community Overpass endpoints как bulk dependency.
+Поднимите собственный endpoint или используйте сервис с подходящими лимитами и
+условиями. Перед live-запуском проверьте attribution, лицензии, request limits и
+операционный бюджет источников.
+
+## Raw storage и резервное копирование
+
+Raw payload сохраняется до строки `SourceRecord` в закрытом S3 bucket по ключу:
+
+```text
+raw/{source}/{campaign_id}/{sha256(external_id)}/{sha256(payload)}.json.gz
+```
+
+Приоритет резервного копирования — согласованная пара PostgreSQL + S3 bucket:
+база содержит provenance, checksum и object key, а Garage — исходный gzip JSON.
+Redis является очередью, а не системой долговременного хранения. Для локальной
+разработки данные находятся в named volumes `postgres_data`, `garage_meta` и
+`garage_data`.
 
 ## Пилотная география
 
-Команда `python manage.py seed_reference_data` создаёт справочники
-`Türkiye → Antalya → Alanya` и область поиска «Аланья — пилот» с bbox
-`(31.70, 36.30, 32.65, 36.75)`. Эта геометрия — operational AOI для первого
-сбора данных, а не юридически точная административная граница Аланьи.
+Bootstrap создаёт `Türkiye → Antalya → Alanya` и область поиска
+«Аланья — пилот» с bbox `(31.70, 36.30, 32.65, 36.75)`. Это operational AOI
+первого сбора, а не юридически точная административная граница Аланьи.
+
+## Диагностика
+
+```bash
+docker compose ps -a
+docker compose logs postgres
+docker compose logs redis
+docker compose logs garage
+docker compose logs backend celery-discovery celery-normalization nginx
+make workers-inspect
+```
+
+- PostGIS: проверьте `DATABASE_URL`, healthcheck и свободный порт 5432.
+- Redis: проверьте `REDIS_URL`, `CELERY_BROKER_URL` и обе worker queues.
+- Garage/S3: проверьте endpoint, bucket, access key/secret и healthcheck.
+- Если справочники или owner отсутствуют, повторите bootstrap — он идемпотентен.
 
 ## Остановка
 
@@ -57,6 +154,12 @@ Apple Silicon без эмуляции.
 make down
 ```
 
-Обычная остановка сохраняет named volumes. Команда
-`docker compose down -v` удаляет локальную базу, очередь и object storage и
-потому намеренно не включена в Makefile.
+Обычная остановка сохраняет development named volumes. `docker compose down -v`
+удаляет локальную базу, очередь и object storage, поэтому намеренно не включён в
+`make down`.
+
+## Ограничение первого среза
+
+Раздел «Бизнесы» показывает предварительные normalized source records. Они ещё
+не являются каноническими бизнесами: дедупликация и слияние между источниками в
+этот vertical slice не входят.

@@ -4814,7 +4814,7 @@ git commit -m "feat: add structured observability and security logging"
 - Consumes: весь vertical slice Tasks 1–21.
 - Produces: reproducible fake-source E2E, real Redis/MinIO/PostGIS integration suite, CI gates и documented local/live launch.
 
-- [ ] **Step 1: Написать failing backend pipeline acceptance test**
+- [x] **Step 1: Написать failing backend pipeline acceptance test**
 
 ```python
 @pytest.mark.django_db(transaction=True)
@@ -4841,7 +4841,7 @@ def test_fixture_campaign_reaches_completed_with_raw_and_normalized_records(
 
 Fixture adapter выдаёт по две вымышленные records для Overture/OSM, включая одну намеренную одинаковую компанию. Assertion требует четыре normalized rows: это доказывает отсутствие скрытой deduplication.
 
-- [ ] **Step 2: Запустить pipeline RED**
+- [x] **Step 2: Запустить pipeline RED**
 
 ```bash
 docker compose -p local-business-intelligence-e2e \
@@ -4852,7 +4852,7 @@ docker compose -p local-business-intelligence-e2e \
 
 Expected: FAIL, пока e2e settings/fake registry/bootstrap не связаны.
 
-- [ ] **Step 3: Реализовать test-only adapter wiring**
+- [x] **Step 3: Реализовать test-only adapter wiring**
 
 `testing.py` разрешает fixture registry только при `DISCOVERY_USE_FIXTURES=1`; production/development settings этот flag игнорируют. Test adapter boundary:
 
@@ -4947,7 +4947,7 @@ services:
 
 Project isolation comes from every command's `-p local-business-intelligence-e2e`; separate project-scoped volumes plus `lbi_e2e` DB/bucket prevent any development data access.
 
-- [ ] **Step 4: Написать failing real Celery/Redis test**
+- [x] **Step 4: Написать failing real Celery/Redis test**
 
 `backend/apps/discovery/tests/integration/test_celery_redis.py` запускает настоящие Celery consumers по очереди через `celery.contrib.testing.worker`: broker остаётся настоящим Redis, result backend отключён, а test точно контролирует отсутствие normalization consumer без управления Docker из test process.
 
@@ -5082,7 +5082,7 @@ docker compose -p local-business-intelligence-e2e -f docker-compose.yml -f docke
 
 Expected first run before final wiring: FAIL по timeout/non-terminal state.
 
-- [ ] **Step 5: Завершить integration wiring и получить backend GREEN**
+- [x] **Step 5: Завершить integration wiring и получить backend GREEN**
 
 `bootstrap_environment` сначала валидирует credential mode, затем выполняет `migrate`, `seed_reference_data`, `seed_sources`, `seed_taxonomy` и идемпотентно создаёт/обновляет owner только если заданы `DJANGO_SUPERUSER_USERNAME` и `DJANGO_SUPERUSER_PASSWORD`; `--require-owner` завершает command с ошибкой, если переменных нет. Password никогда не печатается. Значение `e2e-password` является публичной fixture-константой, не секретом: command принимает его только когда одновременно true `DISCOVERY_USE_FIXTURES` и `E2E_FIXTURE_CREDENTIALS` из `testing.py`; development/production эти flags игнорируют, и validation выполняется до migrations/seeds. Tests дважды вызывают command, проверяют одну user row/seed и работоспособность password, а также фиксируют guard:
 
@@ -5130,7 +5130,7 @@ docker compose -p local-business-intelligence-e2e -f docker-compose.yml -f docke
 
 Expected: PASS.
 
-- [ ] **Step 6: Написать failing Playwright flow**
+- [x] **Step 6: Написать failing Playwright flow**
 
 ```ts
 import { expect, test } from '@playwright/test';
@@ -5156,7 +5156,7 @@ test('login → campaign → progress → preliminary records', async ({ page })
 
 `owner`/`e2e-password` в этом test — только публичная E2E fixture pair, защищённая settings/command guard выше; README прямо запрещает использовать её как development/production credential.
 
-- [ ] **Step 7: Запустить Playwright RED, затем GREEN**
+- [x] **Step 7: Запустить Playwright RED, затем GREEN**
 
 RED до test data/bootstrap/browser config:
 
@@ -5204,7 +5204,7 @@ e2e:
 
 `--wait` использует healthchecks backend, production nginx image и обоих Celery workers из Task 3. Worker считается healthy только после targeted `active_queues()` с его именем и ожидаемой queue; 30 healthcheck attempts и общий `--wait-timeout 120` ограничивают ожидание и устраняют race между стартом container process и регистрацией consumer. Playwright не запускается, пока API, обе очереди и `http://127.0.0.1:8081/` не готовы. Отдельный Vite `frontend` service в E2E runtime не нужен: nginx уже содержит production build. На macOS default устанавливает только Chromium; системные Linux packages не запрашиваются. CI ниже overrides command на `npx playwright install --with-deps chromium`. Expected final: backend integration modules PASS, Playwright 1 PASS и cleanup even after failure.
 
-- [ ] **Step 8: Создать verification script и CI gates**
+- [x] **Step 8: Создать verification script и CI gates**
 
 `infrastructure/scripts/verify.sh` выполняется с `set -eu`:
 
@@ -5267,7 +5267,7 @@ jobs:
 
 `make e2e` уже содержит `trap` cleanup, поэтому CI не дублирует orchestration contract. `verify.sh` и `bootstrap-dev.sh` получают executable bit в Git (`chmod +x` перед commit). Live Overture/OSM credentials не нужны ни одному job; fixture registry обязателен в e2e override.
 
-- [ ] **Step 9: Дописать русский runbook**
+- [x] **Step 9: Дописать русский runbook**
 
 README exact sections:
 
@@ -5283,7 +5283,7 @@ README exact sections:
 - troubleshooting Redis/MinIO/PostGIS;
 - предупреждение, что записи ещё не являются каноническими бизнесами.
 
-- [ ] **Step 10: Полная свежая verification**
+- [x] **Step 10: Полная свежая verification**
 
 ```bash
 make down
@@ -5296,7 +5296,7 @@ make e2e
 
 Expected: clean e2e database/bootstrap succeeds; all backend/frontend/e2e checks pass; no warnings/errors in test output. `down -v` использует отдельный Compose project `local-business-intelligence-e2e`; development volumes не удаляются.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add backend/apps/discovery backend/apps/system backend/config frontend/e2e frontend/playwright.config.ts infrastructure/scripts .github Makefile README.md docker-compose.e2e.yml
@@ -5349,17 +5349,17 @@ apps.normalization.tasks.*   → normalization
 
 ## 4. Финальный checklist перед merge
 
-- [ ] Fresh `docker compose config --quiet` завершился с exit 0.
-- [ ] Fresh backend `ruff check`, `ruff format --check`, Django check и migration check прошли.
-- [ ] Fresh full backend pytest suite прошёл с 0 failures.
-- [ ] Fresh frontend lint, typecheck, Vitest и production build прошли.
-- [ ] Fresh Playwright discovery flow прошёл на clean e2e volumes.
-- [ ] Нет real secrets, `.env`, raw contact fixtures или public MinIO bucket в diff.
-- [ ] Нет apps/queues/routes для отложенных подсистем.
-- [ ] Все UI strings первого среза русские; API keys/status codes английские.
-- [ ] Overture/OSM attribution и dataset version видимы в record detail/progress.
-- [ ] UI нигде не утверждает, что records уникальны или дедуплицированы.
-- [ ] `git status --short` содержит только ожидаемые implementation changes до финального commit и пуст после него.
+- [x] Fresh `docker compose config --quiet` завершился с exit 0.
+- [x] Fresh backend `ruff check`, `ruff format --check`, Django check и migration check прошли.
+- [x] Fresh full backend pytest suite прошёл с 0 failures.
+- [x] Fresh frontend lint, typecheck, Vitest и production build прошли.
+- [x] Fresh Playwright discovery flow прошёл на clean e2e volumes.
+- [x] Нет real secrets, `.env`, raw contact fixtures или public MinIO bucket в diff.
+- [x] Нет apps/queues/routes для отложенных подсистем.
+- [x] Все UI strings первого среза русские; API keys/status codes английские.
+- [x] Overture/OSM attribution и dataset version видимы в record detail/progress.
+- [x] UI нигде не утверждает, что records уникальны или дедуплицированы.
+- [x] `git status --short` содержит только ожидаемые implementation changes до финального commit и пуст после него.
 
 ## 5. Рекомендуемый следующий план
 

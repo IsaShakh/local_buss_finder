@@ -1,7 +1,9 @@
 import json
+import os
 import subprocess
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 class ComposeContractTest(unittest.TestCase):
@@ -171,6 +173,17 @@ class ComposeContractTest(unittest.TestCase):
         for service_name in ("garage", "postgres", "redis"):
             with self.subTest(service=service_name):
                 self.assertNotIn("ports", services[service_name])
+
+    def test_e2e_nginx_does_not_inherit_sentry_build_arg(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"VITE_SENTRY_DSN": "https://telemetry.invalid/fixture-project"},
+        ):
+            nginx = self.load_config("docker-compose.yml", "docker-compose.e2e.yml")[
+                "services"
+            ]["nginx"]
+
+        self.assertEqual("", nginx["build"]["args"]["VITE_SENTRY_DSN"])
 
 
 if __name__ == "__main__":

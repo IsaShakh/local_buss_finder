@@ -21,7 +21,7 @@ class EnqueueSpy:
 
 
 @pytest.fixture
-def minio_store():
+def s3_store():
     if os.environ.get("STORAGE_INTEGRATION_PROJECT") != "1":
         pytest.fail("storage integration tests require the isolated Compose project")
 

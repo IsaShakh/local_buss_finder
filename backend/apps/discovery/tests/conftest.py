@@ -1,8 +1,10 @@
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
 from apps.discovery.domain import RawBusinessRecord
+from apps.discovery.registry import get_adapter
 from apps.sources.tests.fakes import InMemoryRawPayloadStore
 
 
@@ -71,6 +73,13 @@ def fake_store():
 @pytest.fixture
 def normalization_queue():
     return []
+
+
+@pytest.fixture
+def fixture_adapter_registry(settings):
+    if not settings.DISCOVERY_USE_FIXTURES:
+        pytest.fail("fixture adapters require the isolated E2E settings flag")
+    return SimpleNamespace(get=get_adapter)
 
 
 @pytest.fixture

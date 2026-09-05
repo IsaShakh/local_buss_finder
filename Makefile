@@ -1,6 +1,8 @@
 STORAGE_TEST_COMPOSE := docker compose -p local-business-intelligence-storage-test -f docker-compose.yml -f docker-compose.e2e.yml
+E2E_COMPOSE := docker compose -p local-business-intelligence-e2e -f docker-compose.yml -f docker-compose.e2e.yml
+PLAYWRIGHT_INSTALL ?= npx playwright install chromium
 
-.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check frontend-install frontend-test frontend-check storage-integration workers-up workers-inspect
+.PHONY: up down infra-up infra-ps infra-test compose-check backend-test backend-check frontend-install frontend-test frontend-check storage-integration workers-up workers-inspect bootstrap verify e2e
 
 up:
 	docker compose up -d --build
@@ -55,3 +57,22 @@ workers-up:
 workers-inspect:
 	docker compose exec celery-discovery celery -A config inspect active_queues -d discovery@celery-discovery
 	docker compose exec celery-normalization celery -A config inspect active_queues -d normalization@celery-normalization
+
+bootstrap:
+	./infrastructure/scripts/bootstrap-dev.sh
+
+verify:
+	./infrastructure/scripts/verify.sh
+
+e2e:
+	@set -eu; trap '$(E2E_COMPOSE) down -v' EXIT INT TERM; \
+	$(E2E_COMPOSE) build backend celery-discovery celery-normalization frontend nginx; \
+	$(E2E_COMPOSE) up -d --wait --wait-timeout 120 postgres redis garage; \
+	$(E2E_COMPOSE) run --rm backend python manage.py bootstrap_environment --require-owner; \
+	$(E2E_COMPOSE) run --rm -e STORAGE_INTEGRATION_PROJECT=1 backend pytest -m integration \
+	  apps/discovery/tests/integration/test_pipeline.py \
+	  apps/discovery/tests/integration/test_celery_redis.py \
+	  apps/sources/tests/integration/test_s3_raw_payload_storage.py -q; \
+	$(E2E_COMPOSE) up -d --wait --wait-timeout 120 \
+	  backend celery-discovery celery-normalization nginx; \
+	(cd frontend && npm ci && $(PLAYWRIGHT_INSTALL) && npm run test:e2e)

@@ -17,6 +17,7 @@ from apps.discovery.tests.fakes import make_contract_adapter, make_discovery_req
 
 
 def test_registry_returns_adapter_configured_for_source(settings):
+    settings.DISCOVERY_USE_FIXTURES = True
     settings.DISCOVERY_ADAPTERS = {"fixture": "apps.discovery.tests.fakes.FixtureDiscoveryAdapter"}
 
     adapter = get_adapter("fixture")
@@ -25,6 +26,7 @@ def test_registry_returns_adapter_configured_for_source(settings):
 
 
 def test_registry_returns_new_adapter_for_each_source_run(settings):
+    settings.DISCOVERY_USE_FIXTURES = True
     settings.DISCOVERY_ADAPTERS = {"fixture": "apps.discovery.tests.fakes.FixtureDiscoveryAdapter"}
 
     first = get_adapter("fixture")
@@ -42,6 +44,14 @@ def test_registry_rejects_unknown_source(settings):
     assert raised.value.code == "UNKNOWN_DISCOVERY_ADAPTER"
     assert raised.value.detail == "missing"
     assert raised.value.source_code == "missing"
+
+
+def test_registry_rejects_test_adapter_without_fixture_mode(settings):
+    settings.DISCOVERY_USE_FIXTURES = False
+    settings.DISCOVERY_ADAPTERS = {"fixture": "apps.discovery.tests.fakes.FixtureDiscoveryAdapter"}
+
+    with pytest.raises(UnknownDiscoveryAdapter):
+        get_adapter("fixture")
 
 
 def test_contract_probe_executes_shared_contract():
