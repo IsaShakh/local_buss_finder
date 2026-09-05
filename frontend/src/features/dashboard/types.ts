@@ -6,6 +6,7 @@ import type { CampaignStatus } from '../campaigns/types';
 export type DashboardSummary = {
   records: { raw: number; normalized: number; rejected: number; failed: number };
   campaigns: { total: number; running: number; with_errors: number };
+  businesses: { active: number; pending_duplicates: number };
   recent_campaigns: Array<{
     id: string;
     name: string;
@@ -28,6 +29,10 @@ export const dashboardSummarySchema: z.ZodType<DashboardSummary> = z.object({
     total: countSchema,
     running: countSchema,
     with_errors: countSchema,
+  }),
+  businesses: z.object({
+    active: countSchema,
+    pending_duplicates: countSchema,
   }),
   recent_campaigns: z.array(
     z.object({

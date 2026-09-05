@@ -7,13 +7,16 @@ import { renderAuthenticatedApp } from '../../test/render';
 import { server } from '../../test/server';
 
 describe('обзор', () => {
-  it('показывает честные сводные показатели первого среза', async () => {
+  it('показывает отдельные показатели канонических бизнесов и исходных записей', async () => {
     renderAuthenticatedApp('/');
 
     expect(await screen.findByRole('heading', { name: 'Обзор' })).toBeInTheDocument();
     expect(screen.getByText('Сырых записей')).toBeInTheDocument();
     expect(screen.getByText('Нормализовано')).toBeInTheDocument();
-    expect(screen.queryByText('Уникальных бизнесов')).not.toBeInTheDocument();
+    expect(screen.getByText('Уникальные бизнесы')).toBeInTheDocument();
+    expect(screen.getByText('Ожидают проверки')).toBeInTheDocument();
+    expect(screen.getByText('Уникальные бизнесы').parentElement).toHaveTextContent('12');
+    expect(screen.getByText('Ожидают проверки').parentElement).toHaveTextContent('1');
     expect(screen.getByRole('link', { name: 'Аланья — первичный сбор' })).toHaveAttribute(
       'href',
       `/campaigns/${CAMPAIGN_ID}`,
@@ -26,6 +29,7 @@ describe('обзор', () => {
         HttpResponse.json({
           records: { raw: 0, normalized: 0, rejected: 0, failed: 0 },
           campaigns: { total: 0, running: 0, with_errors: 0 },
+          businesses: { active: 0, pending_duplicates: 0 },
           recent_campaigns: [],
         }),
       ),

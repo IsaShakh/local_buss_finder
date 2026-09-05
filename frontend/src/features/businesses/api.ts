@@ -1,10 +1,10 @@
 import { request } from '../../api/client';
-import { sourceRecordPageSchema } from './types';
-import type { SourceRecordQuery } from './types';
+import { businessPageSchema } from './types';
+import type { BusinessListQuery } from './types';
 
 const PAGE_SIZE = 50;
 
-export async function listSourceRecords(query: SourceRecordQuery) {
+export async function listBusinesses(query: BusinessListQuery) {
   const params = new URLSearchParams({ page: String(query.page), page_size: String(PAGE_SIZE) });
   if (query.search) params.set('search', query.search);
   if (query.campaign) params.set('campaign', query.campaign);
@@ -12,6 +12,6 @@ export async function listSourceRecords(query: SourceRecordQuery) {
   if (query.category) params.set('category', query.category);
   if (query.ordering) params.set('ordering', query.ordering);
 
-  const body = await request<unknown>(`/api/v1/source-records/?${params.toString()}`);
-  return sourceRecordPageSchema.parse(body);
+  const body = await request<unknown>(`/api/v1/businesses/?${params.toString()}`);
+  return businessPageSchema.parse(body);
 }

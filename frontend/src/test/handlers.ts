@@ -6,7 +6,7 @@ export const ALANYA_ID = '11111111-1111-4111-8111-111111111111';
 export const OVERTURE_ID = '22222222-2222-4222-8222-222222222222';
 export const OSM_ID = '33333333-3333-4333-8333-333333333333';
 export const CAMPAIGN_ID = '55555555-5555-4555-8555-555555555555';
-export const SOURCE_RECORD_ID = '66666666-6666-4666-8666-666666666666';
+export const BUSINESS_ID = '66666666-6666-4666-8666-666666666666';
 export const DENTIST_ID = '77777777-7777-4777-8777-777777777777';
 
 export const campaignCreateRequests: unknown[] = [];
@@ -62,11 +62,10 @@ const categories = [
   },
 ];
 
-export const sourceRecord = {
-  id: SOURCE_RECORD_ID,
-  is_canonical: false as const,
+export const business = {
+  id: BUSINESS_ID,
+  is_canonical: true as const,
   display_name: 'Smile Dental Alanya',
-  source: { code: 'osm', name: 'OpenStreetMap' },
   category: { id: DENTIST_ID, name: 'Стоматология', slug: 'dentist' },
   district: {
     id: '99999999-9999-4999-8999-999999999999',
@@ -74,26 +73,33 @@ export const sourceRecord = {
     slug: 'alanya',
   },
   phones: ['+902425551212', '+902425551313'],
+  emails: ['hello@smile.example'],
   websites: ['https://smile.example', 'https://booking.smile.example'],
-  normalization_status: 'normalized' as const,
-  fetched_at: '2026-09-04T12:30:00Z',
+  social_urls: { instagram: ['https://instagram.com/smile'] },
+  address_text: 'Atatürk Caddesi 7, Аланья',
+  location: { type: 'Point' as const, coordinates: [31.99, 36.54] },
+  source_count: 2,
+  source_record_count: 3,
+  pending_duplicate_count: 1,
+  first_seen_at: '2026-09-01T12:30:00Z',
+  last_seen_at: '2026-09-04T12:30:00Z',
 };
 
 export const businessesResponse = {
   count: 120,
-  next: '/api/v1/source-records/?page=2&page_size=50',
+  next: '/api/v1/businesses/?page=2&page_size=50',
   previous: null,
-  results: [sourceRecord],
+  results: [business],
 };
 
 export const businessListRequests: URL[] = [];
 
-export const businessesEmptyHandler = http.get('/api/v1/source-records/', ({ request }) => {
+export const businessesEmptyHandler = http.get('/api/v1/businesses/', ({ request }) => {
   businessListRequests.push(new URL(request.url));
   return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
 });
 
-export const businessesServerErrorHandler = http.get('/api/v1/source-records/', ({ request }) => {
+export const businessesServerErrorHandler = http.get('/api/v1/businesses/', ({ request }) => {
   businessListRequests.push(new URL(request.url));
   return HttpResponse.json(
     {
@@ -328,6 +334,7 @@ export const handlers = [
     HttpResponse.json({
       records: { raw: 120, normalized: 96, rejected: 20, failed: 4 },
       campaigns: { total: 3, running: 1, with_errors: 1 },
+      businesses: { active: 12, pending_duplicates: 1 },
       recent_campaigns: [
         {
           id: CAMPAIGN_ID,
@@ -339,14 +346,14 @@ export const handlers = [
       ],
     }),
   ),
-  http.get('/api/v1/source-records/', ({ request }) => {
+  http.get('/api/v1/businesses/', ({ request }) => {
     const url = new URL(request.url);
     businessListRequests.push(url);
     const page = Number(url.searchParams.get('page') ?? '1');
     return HttpResponse.json({
       ...businessesResponse,
-      next: page * 50 < businessesResponse.count ? `/api/v1/source-records/?page=${page + 1}` : null,
-      previous: page > 1 ? `/api/v1/source-records/?page=${page - 1}` : null,
+      next: page * 50 < businessesResponse.count ? `/api/v1/businesses/?page=${page + 1}` : null,
+      previous: page > 1 ? `/api/v1/businesses/?page=${page - 1}` : null,
     });
   }),
 ];

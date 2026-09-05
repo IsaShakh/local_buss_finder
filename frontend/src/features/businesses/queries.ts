@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { listSources } from '../sources/api';
 import { listCategories } from '../taxonomy/api';
-import { listSourceRecords } from './api';
-import type { SourceRecordQuery } from './types';
+import { listBusinesses } from './api';
+import type { BusinessListQuery } from './types';
 
-export function useSourceRecords(query: SourceRecordQuery) {
+export function useBusinesses(query: BusinessListQuery) {
   return useQuery({
-    queryKey: ['source-records', query],
-    queryFn: () => listSourceRecords(query),
+    queryKey: ['businesses', query],
+    queryFn: () => listBusinesses(query),
     placeholderData: (previous) => previous,
   });
 }
