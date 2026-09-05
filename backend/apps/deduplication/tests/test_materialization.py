@@ -130,7 +130,12 @@ def test_rebuild_materializes_primary_scalars_and_deterministic_contact_unions(
     assert rebuilt.address_text == "Primary address"
     assert rebuilt.category_id == category.id
     assert rebuilt.location == Point(32.1, 36.1, srid=4326)
-    assert (rebuilt.country_id, rebuilt.province_id, rebuilt.district_id, rebuilt.neighborhood_id) == (
+    assert (
+        rebuilt.country_id,
+        rebuilt.province_id,
+        rebuilt.district_id,
+        rebuilt.neighborhood_id,
+    ) == (
         primary.country_id,
         primary.province_id,
         primary.district_id,
@@ -156,7 +161,10 @@ def test_rebuild_materializes_primary_scalars_and_deterministic_contact_unions(
 
 
 @pytest.mark.django_db
-def test_rebuild_is_byte_stable_and_uses_three_queries(owner, normalized_record_factory, django_assert_num_queries):
+@pytest.mark.parametrize("additional_memberships", [0, 8])
+def test_rebuild_is_byte_stable_with_constant_validation_query_budget(
+    owner, normalized_record_factory, django_assert_num_queries, additional_memberships
+):
     """Catches unstable JSON/contact ordering or per-membership database queries during rebuilds."""
     first = normalized_record_factory(
         source_code="alpha",
@@ -171,8 +179,13 @@ def test_rebuild_is_byte_stable_and_uses_three_queries(owner, normalized_record_
     )
     business = seed_business(normalized_record=first, owner_id=owner.id)
     BusinessSourceMembership.objects.create(business=business, normalized_record=second)
+    for _ in range(additional_memberships):
+        record = normalized_record_factory(source_code="extra")
+        BusinessSourceMembership.objects.create(business=business, normalized_record=record)
 
-    with django_assert_num_queries(3):
+    # Two reads + one write, plus six fixed foreign-key checks from full_clean.
+    # The budget stays constant with two or ten memberships.
+    with django_assert_num_queries(9):
         rebuild_business(business_id=business.id)
     business.refresh_from_db()
     first_snapshot = {
@@ -202,10 +215,7 @@ def test_rebuild_is_byte_stable_and_uses_three_queries(owner, normalized_record_
 
     rebuild_business(business_id=business.id)
     business.refresh_from_db()
-    assert {
-        field: getattr(business, field)
-        for field in first_snapshot
-    } == first_snapshot
+    assert {field: getattr(business, field) for field in first_snapshot} == first_snapshot
 
 
 @pytest.mark.django_db
@@ -218,6 +228,20 @@ def test_rebuild_rejects_a_merged_business(owner, normalized_record_factory):
 
     with pytest.raises(ValueError, match="merged"):
         rebuild_business(business_id=merged.id)
+
+
+@pytest.mark.django_db
+def test_rebuild_validates_canonical_business_before_saving(owner, normalized_record_factory):
+    """Catches saving canonical contact changes while the business state is invalid."""
+    record = normalized_record_factory(source_code="validation", emails=["new@example.test"])
+    business = Business.objects.create(owner=owner, resolution_version="")
+    BusinessSourceMembership.objects.create(business=business, normalized_record=record)
+    before = Business.objects.values().get(id=business.id)
+
+    with pytest.raises(ValidationError, match="resolution_version"):
+        rebuild_business(business_id=business.id)
+
+    assert Business.objects.values().get(id=business.id) == before
 
 
 @pytest.mark.django_db

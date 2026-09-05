@@ -30,9 +30,14 @@ def confirm_duplicate(*, candidate_id: UUID, actor: User) -> DuplicateCandidate:
             key=lambda row: (-counts.get(row.id, 0), row.created_at, str(row.id)),
         )
         moved_memberships = BusinessSourceMembership.objects.filter(business=loser)
-        candidate.moved_membership_ids = sorted(
-            str(membership_id) for membership_id in moved_memberships.values_list("id", flat=True)
-        )
+        moved_ids = []
+        for membership in moved_memberships.select_related(
+            "normalized_record__source_record__campaign"
+        ):
+            membership.business = survivor
+            membership.full_clean()
+            moved_ids.append(str(membership.id))
+        candidate.moved_membership_ids = sorted(moved_ids)
         moved_memberships.update(business=survivor)
         loser.merged_into = survivor
         loser.full_clean()

@@ -263,6 +263,50 @@ def test_invalid_superseded_pair_rolls_back_the_entire_confirmation(
     assert list(DuplicateCandidate.objects.order_by("id").values()) == candidates
 
 
+def test_confirm_rejects_foreign_membership_before_any_move(
+    owner,
+    other_owner,
+    business_factory,
+    normalized_record_factory,
+    django_capture_on_commit_callbacks,
+    caplog,
+):
+    """Catches materializing foreign contacts from a corrupt losing membership."""
+    survivor = business_factory(number=3)
+    loser = business_factory()
+    foreign_record = normalized_record_factory(
+        source_code="foreign", emails=["private@foreign.test"]
+    )
+    campaign = foreign_record.source_record.campaign
+    campaign.created_by = other_owner
+    campaign.save(update_fields=["created_by"])
+    # bulk_create deliberately bypasses ownership validation, simulating corrupt data.
+    BusinessSourceMembership.objects.bulk_create(
+        [BusinessSourceMembership(business=loser, normalized_record=foreign_record)]
+    )
+    candidate = pair(owner, survivor, loser)
+    businesses = list(Business.objects.order_by("id").values())
+    memberships = list(BusinessSourceMembership.objects.order_by("id").values())
+    candidates = list(DuplicateCandidate.objects.order_by("id").values())
+    caplog.set_level(logging.INFO, logger="apps.deduplication.decisions")
+
+    with (
+        CaptureQueriesContext(connection) as queries,
+        django_capture_on_commit_callbacks(execute=True) as callbacks,
+        pytest.raises(ValidationError, match="same owner"),
+    ):
+        decide("confirmed", candidate, owner)
+
+    assert not any(
+        q["sql"].startswith('UPDATE "businesses_businesssourcemembership"') for q in queries
+    )
+    assert list(Business.objects.order_by("id").values()) == businesses
+    assert list(BusinessSourceMembership.objects.order_by("id").values()) == memberships
+    assert list(DuplicateCandidate.objects.order_by("id").values()) == candidates
+    assert callbacks == []
+    assert not caplog.records
+
+
 @pytest.mark.parametrize("action", ["confirmed", "rejected"])
 def test_decision_rolls_back_and_emits_only_safe_payload_after_commit(
     owner, business_factory, action, django_capture_on_commit_callbacks, caplog

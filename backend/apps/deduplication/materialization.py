@@ -94,6 +94,7 @@ def rebuild_business(*, business_id: UUID) -> Business:
     fetched_at = [record.source_record.fetched_at for record in records]
     business.first_seen_at = min(fetched_at)
     business.last_seen_at = max(fetched_at)
+    business.full_clean()
     business.save(
         update_fields=(
             "primary_normalized_record",
