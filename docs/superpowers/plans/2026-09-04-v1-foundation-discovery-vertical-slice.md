@@ -3011,7 +3011,7 @@ git commit -m "feat: add Overture Places discovery adapter"
 - Consumes: `OVERPASS_URL`, `SOURCE_USER_AGENT`, Source operational limits, Task 13 contract.
 - Produces: `build_overpass_query(bbox, selectors) -> str`; `OverpassClient.fetch(query) -> dict`; `OpenStreetMapAdapter(source_code="osm")`.
 
-- [ ] **Step 1: Написать failing query builder test**
+- [x] **Step 1: Написать failing query builder test**
 
 ```python
 def test_query_builder_uses_selected_mappings_and_bounded_resources():
@@ -3056,7 +3056,7 @@ def test_query_builder_accepts_only_documented_selector_alphabet():
 
 Implementation сначала проверяет каждый полный selector expression regex `^[a-z0-9_:.-]+=[a-z0-9_:.-]+$`, затем безопасно разделяет ровно по первому `=`; quote/newline никогда не достигают query template.
 
-- [ ] **Step 2: Написать failing parser/error tests**
+- [x] **Step 2: Написать failing parser/error tests**
 
 ```python
 def test_osm_parser_uses_node_coordinates_and_way_center(osm_adapter, osm_fixture):
@@ -3108,7 +3108,7 @@ def test_production_settings_reject_placeholder_source_user_agent():
 
 Pure validator дополнительно параметризован для empty `OVERPASS_URL`, empty `OSM_DATASET_VERSION`, `.invalid`, `.example`, `localhost` и user agent без URI/email; отдельный positive test принимает HTTPS endpoint и реальный contact URI.
 
-- [ ] **Step 3: Запустить RED**
+- [x] **Step 3: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_osm_query.py apps/discovery/tests/test_osm_adapter.py apps/discovery/tests/test_production_settings.py -q
@@ -3116,7 +3116,7 @@ docker compose run --rm backend pytest apps/discovery/tests/test_osm_query.py ap
 
 Expected: FAIL с отсутствующими builder/adapter.
 
-- [ ] **Step 4: Реализовать query builder/client/parser**
+- [x] **Step 4: Реализовать query builder/client/parser**
 
 Добавить `httpx==0.28.1` в `base.in`, перекомпилировать все три lockfiles exact commands из Task 2. `OverpassClient` делает один synchronous `httpx.Client.post(url, data={"data": query})` с explicit timeout и headers:
 
@@ -3141,13 +3141,13 @@ SOURCE_USER_AGENT=local-business-intelligence/0.1 (+https://example.invalid/cont
 
 Значение `example.invalid` — только development placeholder. `production.py` отказывает в запуске live OSM adapter без непустых `OVERPASS_URL`, `OSM_DATASET_VERSION` и контактного `SOURCE_USER_AGENT`, а также явно отклоняет `.invalid`, `.example`, `localhost` и строку без URI/email; fixture mode эти checks не обходит вне testing settings.
 
-- [ ] **Step 5: Реализовать mapping semantics**
+- [x] **Step 5: Реализовать mapping semantics**
 
 Если campaign выбрала categories, selectors берутся из active `SourceCategoryMapping.external_category` для этих category IDs отдельно для каждого выбранного source. Пустой `category_ids` означает все active mappings выбранного source: для OSM seed это `amenity=dentist`, `office=estate_agent`, `tourism=hotel`, `shop=beauty`, для Overture — `dentist`, `real_estate_agent`, `hotel`, `beauty_salon`. Отсутствие mappings отклоняется ещё в `create_campaign`; defensive повторная проверка в `start_campaign` возвращает `SOURCE_HAS_NO_ACTIVE_MAPPINGS` до создания/enqueue source runs, если configuration изменилась после создания draft. OSM parser применяет tag precedence `amenity`, `office`, `tourism`, `shop` и возвращает exact `key=value` как `raw_category`.
 
 `OpenStreetMapAdapter.resolve_dataset_version()` возвращает `OSM_DATASET_VERSION` для production snapshot; без него только в development/test строит retrieval marker `overpass-live:{sha256(normalized_endpoint)[:12]}:{run_started_at_rfc3339}` с injected clock. Значение вычисляется один раз при старте source run, сохраняется в `CampaignSourceRun.source_dataset_version` и передаётся каждому payload provenance. Retry существующего run использует сохранённое значение и не вызывает resolver повторно.
 
-- [ ] **Step 6: Проверить GREEN и contract**
+- [x] **Step 6: Проверить GREEN и contract**
 
 ```bash
 docker compose run --rm backend pytest apps/discovery/tests/test_osm_query.py apps/discovery/tests/test_osm_adapter.py -q
@@ -3157,7 +3157,7 @@ docker compose run --rm backend ruff check apps/discovery
 
 Expected: all PASS; no request reaches public Overpass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/apps/discovery backend/tests/fixtures backend/requirements backend/config/settings .env.example

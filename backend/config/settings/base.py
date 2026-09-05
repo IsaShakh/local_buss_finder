@@ -72,6 +72,7 @@ CELERY_TASK_IGNORE_RESULT = env.bool("CELERY_TASK_IGNORE_RESULT", default=True)
 CELERY_RESULT_BACKEND = None
 
 DISCOVERY_ADAPTERS = {
+    "osm": "apps.discovery.adapters.osm.OpenStreetMapAdapter",
     "overture": "apps.discovery.adapters.overture.OvertureAdapter",
 }
 
@@ -91,6 +92,13 @@ S3_SECRET_ACCESS_KEY = env("S3_SECRET_ACCESS_KEY")
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="local-business-intelligence")
 S3_REGION_NAME = env("S3_REGION_NAME", default="garage")
 S3_FORCE_PATH_STYLE = env.bool("S3_FORCE_PATH_STYLE", default=True)
+
+OVERPASS_URL = env("OVERPASS_URL", default="")
+OSM_DATASET_VERSION = env("OSM_DATASET_VERSION", default="")
+SOURCE_USER_AGENT = env(
+    "SOURCE_USER_AGENT",
+    default="local-business-intelligence/0.1 (+https://example.invalid/contact)",
+)
 
 LANGUAGE_CODE = "ru-ru"
 TIME_ZONE = "UTC"

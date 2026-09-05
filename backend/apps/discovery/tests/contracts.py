@@ -5,6 +5,7 @@ if TYPE_CHECKING:
 
 
 def assert_adapter_contract(adapter: "DiscoveryAdapter", request: "DiscoveryRequest") -> None:
+    assert adapter.source_code
     assert adapter.resolve_dataset_version()
     payloads = list(adapter.discover(request))
     assert payloads

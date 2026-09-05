@@ -1,0 +1,44 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API",
+  "elements": [
+    {
+      "type": "node",
+      "id": 101,
+      "lat": 36.545,
+      "lon": 32.002,
+      "tags": {
+        "name": "Alanya Test Diş Kliniği",
+        "amenity": "dentist",
+        "contact:phone": "+90 242 000 00 01; +90 242 000 00 02",
+        "phone": "+90 242 999 00 00",
+        "contact:email": "hello@alanya-dentist.example; booking@alanya-dentist.example",
+        "email": "fallback@alanya-dentist.example",
+        "contact:website": "https://contact.alanya-dentist.example/",
+        "website": "https://alanya-dentist.example/",
+        "url": "https://directory.alanya-dentist.example/",
+        "contact:facebook": "https://facebook.com/alanya.test.dentist",
+        "contact:instagram": "https://instagram.com/alanya_test_dentist",
+        "contact:twitter": "https://twitter.com/alanya_dentist",
+        "contact:x": "https://x.com/alanya_dentist",
+        "addr:street": "Atatürk Caddesi",
+        "addr:housenumber": "12",
+        "addr:suburb": "Saray",
+        "addr:city": "Alanya",
+        "addr:postcode": "07400"
+      }
+    },
+    {
+      "type": "way",
+      "id": 202,
+      "center": {
+        "lat": 36.55,
+        "lon": 32.01
+      },
+      "tags": {
+        "name": "Alanya Test Hotel",
+        "tourism": "hotel"
+      }
+    }
+  ]
+}
