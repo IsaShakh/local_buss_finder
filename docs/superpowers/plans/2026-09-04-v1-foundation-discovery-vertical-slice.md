@@ -4333,7 +4333,7 @@ export type SourceProgress = {
 };
 ```
 
-- [ ] **Step 1: Написать failing campaign form test**
+- [x] **Step 1: Написать failing campaign form test**
 
 ```tsx
 it('создаёт черновик из выбранной области и двух источников', async () => {
@@ -4384,7 +4384,7 @@ it('отклоняет неизвестный progress status на API boundary'
 
 `campaignCreateRequests` — очищаемый в `beforeEach` массив, в который default MSW POST handler кладёт `await request.json()`; первый happy-path test сравнивает его единственный item с UUID arrays в выбранном порядке и пустым `category_ids`. `campaignProgressSchema` описывает весь `CampaignProgress`/`SourceProgress`, а `api.ts` применяет `.parse()` до передачи данных UI.
 
-- [ ] **Step 2: Запустить form RED**
+- [x] **Step 2: Запустить form RED**
 
 ```bash
 cd frontend
@@ -4393,11 +4393,11 @@ npm run test:run -- src/features/campaigns/CampaignCreatePage.test.tsx
 
 Expected: FAIL с missing module/route.
 
-- [ ] **Step 3: Реализовать API hooks и form**
+- [x] **Step 3: Реализовать API hooks и form**
 
 Queries имеют stable keys: `['search-areas']`, `['categories']`, `['sources']`, `['campaigns']`, `['campaign', id]`, `['campaign-progress', id]`. Empty `category_ids` отображается radio/label «Все поддерживаемые категории». После create navigate `/campaigns/{id}`; start остаётся отдельной кнопкой, чтобы пользователь видел preview.
 
-- [ ] **Step 4: Написать failing progress polling test с fake timers**
+- [x] **Step 4: Написать failing progress polling test с fake timers**
 
 ```tsx
 it('после запуска опрашивает progress каждые 3 секунды и прекращает на terminal status', async () => {
@@ -4415,7 +4415,7 @@ it('после запуска опрашивает progress каждые 3 се�
 });
 ```
 
-- [ ] **Step 5: Запустить progress RED**
+- [x] **Step 5: Запустить progress RED**
 
 ```bash
 cd frontend
@@ -4424,7 +4424,7 @@ npm run test:run -- src/features/campaigns/CampaignDetailPage.test.tsx
 
 Expected: FAIL с отсутствующим detail/progress behavior.
 
-- [ ] **Step 6: Реализовать detail/progress UI**
+- [x] **Step 6: Реализовать detail/progress UI**
 
 `refetchInterval` возвращает `3000` только для `queued`/`running` (и прекращается после terminal response), иначе `false`. UI показывает status, start time, totals и отдельную строку каждого `SourceProgress`: code, name, status, dataset version, stored, normalized, rejected, failed. ProgressBar использует `processed / max(stored, 1)` и доступные `aria-valuenow/min/max`; при discovery без известного total показывается indeterminate label «Сбор данных…», не фиктивный процент. Tests подтверждают отсутствие polling после `completed`, `completed_with_errors` и `failed`.
 
@@ -4441,7 +4441,7 @@ export const campaignStatusLabel = {
 } satisfies Record<CampaignStatus, string>;
 ```
 
-- [ ] **Step 7: Проверить GREEN**
+- [x] **Step 7: Проверить GREEN**
 
 ```bash
 cd frontend
@@ -4452,7 +4452,7 @@ npm run typecheck
 
 Expected: all PASS/exit 0; состояния загрузки, пустого результата и ошибки покрыты отдельными tests.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/features frontend/src/components frontend/src/shared frontend/src/app frontend/src/test

@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -79,6 +80,15 @@ h1 {
 
 .form-field input {
   width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #aebdc6;
+  border-radius: 8px;
+  color: inherit;
+  background: #ffffff;
+}
+
+.form-field select {
   min-height: 44px;
   padding: 10px 12px;
   border: 1px solid #aebdc6;
@@ -176,6 +186,173 @@ h1 {
 .app-content {
   width: min(1120px, 100%);
   padding: 48px;
+}
+
+.page-stack {
+  display: grid;
+  gap: 28px;
+}
+
+.page-heading,
+.campaign-meta,
+.source-heading,
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #35725f;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.primary-link,
+.campaign-form button,
+.page-stack > button {
+  width: fit-content;
+  min-height: 42px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #236a55;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.campaign-form {
+  display: grid;
+  max-width: 680px;
+  gap: 8px;
+}
+
+.choice-group {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 18px;
+  border: 1px solid #d3dde3;
+  border-radius: 10px;
+}
+
+.choice-group legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.choice-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #36505d;
+  background: #e5edf1;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.status-running,
+.status-normalizing {
+  color: #235370;
+  background: #dfeef8;
+}
+
+.status-completed {
+  color: #174e3e;
+  background: #dcefe8;
+}
+
+.status-completed_with_errors,
+.status-failed {
+  color: #84292e;
+  background: #f8dfe0;
+}
+
+.progress-panel,
+.source-progress-list > li,
+.card-list > li {
+  padding: 22px;
+  border: 1px solid #dce4e9;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce4e9;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2d8066;
+}
+
+.progress-indeterminate {
+  color: #52616b;
+  font-weight: 700;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.metric-grid div {
+  padding: 14px;
+  border-radius: 10px;
+  background: #f1f5f7;
+}
+
+.metric-grid dt {
+  color: #52616b;
+  font-size: 0.85rem;
+}
+
+.metric-grid dd {
+  margin: 4px 0 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.source-progress-list,
+.source-counters,
+.card-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.source-heading span,
+.campaign-meta {
+  color: #52616b;
+}
+
+.source-counters {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 @media (max-width: 700px) {
