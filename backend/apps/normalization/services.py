@@ -12,6 +12,7 @@ from apps.discovery.domain import RawBusinessRecord
 from apps.geography.models import SearchArea
 from apps.sources.models import NormalizedSourceRecord, SourceRecord
 from apps.taxonomy.services import resolve_category
+from common.observability import structured_event
 
 from .domain import NormalizationResult, NormalizedBusinessData, NormalizedStrings
 from .rules.addresses import normalize_address
@@ -162,6 +163,17 @@ def _record_rejection_once(
             rejected_records=F("rejected_records") + 1,
             updated_at=timezone.now(),
         )
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_record.rejected",
+                campaign_id=campaign.id,
+                source_run_id=source_run.id,
+                source_record_id=source_record.id,
+                correlation_id=str(campaign.id),
+                error_code=error_code,
+                message="Source record rejected",
+            )
+        )
 
 
 def _materialize_result(
@@ -219,6 +231,16 @@ def _materialize_result(
         DiscoveryCampaign.objects.filter(id=campaign.id).update(
             normalized_records=F("normalized_records") + 1,
             updated_at=now,
+        )
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_record.normalized",
+                campaign_id=campaign.id,
+                source_run_id=source_run.id,
+                source_record_id=source_record.id,
+                correlation_id=str(campaign.id),
+                message="Source record normalized",
+            )
         )
     return normalized
 

@@ -116,6 +116,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       target: production
+      args:
+        VITE_SENTRY_DSN: "${VITE_SENTRY_DSN:-}"
     depends_on:
       backend: {condition: service_healthy}
     ports:

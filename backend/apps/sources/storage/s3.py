@@ -2,6 +2,7 @@ import gzip
 import hashlib
 import json
 from collections.abc import Mapping
+from time import perf_counter
 from typing import Any, cast
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from botocore.exceptions import (
 )
 
 from common.json_types import JSONValue, canonical_json_bytes
+from common.observability import structured_event
 
 from .base import RawStorageUnavailable, StoredPayload
 
@@ -69,6 +71,7 @@ class S3RawPayloadStore:
             "source-dataset-version": metadata["source-dataset-version"],
         }
 
+        started_at = perf_counter()
         try:
             self.client.put_object(
                 Bucket=self.bucket,
@@ -84,6 +87,15 @@ class S3RawPayloadStore:
             if _is_retryable_client_error(error):
                 raise RawStorageUnavailable from error
             raise
+
+        structured_event(
+            "storage.object.stored",
+            campaign_id=campaign_id,
+            correlation_id=str(campaign_id),
+            source=source_code,
+            duration_ms=round((perf_counter() - started_at) * 1000, 3),
+            message="Raw payload object stored",
+        )
 
         return StoredPayload(
             key=key,

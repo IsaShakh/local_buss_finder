@@ -1,6 +1,9 @@
 from apps.discovery.config import validate_live_osm_configuration
+from config.sentry import init_backend_sentry
 
 from .base import *
+
+SENTRY_ENABLED = init_backend_sentry(SENTRY_DSN)
 
 validate_live_osm_configuration(
     overpass_url=OVERPASS_URL,

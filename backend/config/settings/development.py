@@ -1,4 +1,8 @@
+from config.sentry import init_backend_sentry
+
 from .base import *
+
+SENTRY_ENABLED = init_backend_sentry(SENTRY_DSN)
 
 DEBUG = True
 SESSION_COOKIE_SECURE = False

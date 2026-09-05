@@ -15,6 +15,7 @@ from apps.sources.models import SourceRecord
 from apps.sources.services import persist_source_payload
 from apps.sources.storage import RawPayloadStore
 from apps.taxonomy.services import resolve_external_categories
+from common.observability import structured_event
 
 
 def build_discovery_request(source_run: CampaignSourceRun) -> DiscoveryRequest:
@@ -119,6 +120,16 @@ def _start_source_run(source_run_id: UUID, adapter: DiscoveryAdapter) -> Campaig
                 "updated_at",
             )
         )
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_run.started",
+                campaign_id=source_run.campaign_id,
+                source_run_id=source_run.id,
+                source=source_run.source.code,
+                correlation_id=str(source_run.campaign_id),
+                message="Source run started",
+            )
+        )
         return source_run
 
 
@@ -138,6 +149,16 @@ def _finish_discovery(source_run_id: UUID) -> CampaignSourceRun:
         }:
             source_run.status = CampaignSourceRun.Status.NORMALIZING
         source_run.save(update_fields=("discovery_finished_at", "status", "updated_at"))
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_run.discovery_finished",
+                campaign_id=source_run.campaign_id,
+                source_run_id=source_run.id,
+                source=source_run.source.code,
+                correlation_id=str(source_run.campaign_id),
+                message="Source discovery finished",
+            )
+        )
         return source_run
 
 
@@ -229,6 +250,17 @@ def mark_source_discovery_exhausted(
                 "updated_at",
             )
         )
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_run.discovery_exhausted",
+                campaign_id=source_run.campaign_id,
+                source_run_id=source_run.id,
+                source=source_run.source.code,
+                correlation_id=str(source_run.campaign_id),
+                error_code=source_run.error_code,
+                message="Source discovery exhausted",
+            )
+        )
     if not ready:
         return CampaignSourceRun.Status.NORMALIZING
     requested_status = (
@@ -252,6 +284,14 @@ def begin_campaign(campaign_id: UUID) -> tuple[UUID, ...]:
         campaign.status = DiscoveryCampaign.Status.RUNNING
         campaign.started_at = campaign.started_at or timezone.now()
         campaign.save(update_fields=("status", "started_at", "updated_at"))
+        transaction.on_commit(
+            lambda: structured_event(
+                "campaign.started",
+                campaign_id=campaign.id,
+                correlation_id=str(campaign.id),
+                message="Campaign started",
+            )
+        )
         return tuple(
             campaign.source_runs.filter(status=CampaignSourceRun.Status.PENDING).values_list(
                 "id", flat=True

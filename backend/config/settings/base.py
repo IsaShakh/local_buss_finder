@@ -27,12 +27,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.system.middleware.CorrelationIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
 ]
+
+CSRF_FAILURE_VIEW = "apps.system.api.csrf.csrf_failure"
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -101,6 +104,28 @@ SOURCE_USER_AGENT = env(
     "SOURCE_USER_AGENT",
     default="local-business-intelligence/0.1 (+https://example.invalid/contact)",
 )
+
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_ENABLED = False
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "common.observability.StructuredJsonFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "stream": "ext://sys.stdout",
+        }
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+}
 
 LANGUAGE_CODE = "ru-ru"
 TIME_ZONE = "UTC"

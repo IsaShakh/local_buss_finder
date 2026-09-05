@@ -4684,7 +4684,7 @@ git commit -m "feat: show discovery overview and preliminary business records"
 - Structured JSON fields are exactly `timestamp`, `level`, `service`, `event`, `message`, `request_id`, `task_id`, `correlation_id`, `campaign_id`, `source_run_id`, `source`, `source_record_id`, `error_code`, `duration_ms`. Context outside this allowlist is dropped, not merely masked.
 - Optional Sentry is enabled only when `SENTRY_DSN`/`VITE_SENTRY_DSN` is non-empty, with `send_default_pii=False`; tests keep it disabled and make no outbound telemetry.
 
-- [ ] **Step 1: Написать failing observability/security tests**
+- [x] **Step 1: Написать failing observability/security tests**
 
 ```python
 @pytest.mark.django_db
@@ -4726,7 +4726,7 @@ def test_backend_sentry_is_disabled_for_empty_dsn(monkeypatch):
 
 `test_security_logging.py` дополнительно отправляет неверный CSRF/session request и проверяет generic API envelope без cookie, token, stack trace или username. `celery_signals` test создаёт fake task request: header `correlation_id` имеет приоритет, иначе используется Celery `task_id`; lifecycle event всегда содержит оба идентификатора.
 
-- [ ] **Step 2: Запустить RED**
+- [x] **Step 2: Запустить RED**
 
 ```bash
 docker compose run --rm backend pytest common/tests/test_observability.py apps/system/tests/test_security_logging.py -q
@@ -4734,13 +4734,13 @@ docker compose run --rm backend pytest common/tests/test_observability.py apps/s
 
 Expected: FAIL с отсутствующими middleware/functions.
 
-- [ ] **Step 3: Реализовать structured logging, correlation и backend Sentry**
+- [x] **Step 3: Реализовать structured logging, correlation и backend Sentry**
 
 Добавить `python-json-logger==4.2.0` и `sentry-sdk[django]==2.68.1` в `base.in`, затем перекомпилировать все три lockfiles exact commands из Task 2. `CorrelationIdMiddleware` принимает только printable ASCII `[A-Za-z0-9._:-]{1,128}`, иначе генерирует UUID, сохраняет его в `request.correlation_id` и возвращает `X-Correlation-ID`. `structured_event` строит новый dict только из allowlist; values должны быть scalar, UUID/datetime приводятся к string. Campaign start, source-run transition, object put, normalization и terminal completion вызывают этот helper без payload/contact arguments. Django `LOGGING` выводит JSON в stdout.
 
 `init_backend_sentry` вызывает `sentry_sdk.init(dsn=..., integrations=[DjangoIntegration(), CeleryIntegration()], send_default_pii=False, before_send=sanitize_sentry_event)` только при непустом DSN; sanitizer удаляет request headers/cookies/body и user IP/email. `testing.py` задаёт `SENTRY_DSN=""`.
 
-- [ ] **Step 4: Написать RED и реализовать React boundary**
+- [x] **Step 4: Написать RED и реализовать React boundary**
 
 ```ts
 it('не инициализирует Sentry без DSN', () => {
@@ -4768,7 +4768,7 @@ npm run test:run -- src/app/observability.test.ts
 
 Выполнить `npm install --save-exact @sentry/react@10.73.0` и commit обновлённого lockfile. `main.tsx` вызывает `initFrontendObservability(import.meta.env.VITE_SENTRY_DSN)` до render; initializer sets `sendDefaultPii: false` and `beforeSend: sanitizeFrontendEvent`, returns `false` без DSN. `.env.example` добавляет пустой `VITE_SENTRY_DSN=`; build stage уже принимает одноимённый `ARG`/`ENV`, а Task 21 добавляет в `nginx.build.args` exact mapping `VITE_SENTRY_DSN: "${VITE_SENTRY_DSN:-}"`. DSN считается build-time config, не runtime secret.
 
-- [ ] **Step 5: Проверить GREEN**
+- [x] **Step 5: Проверить GREEN**
 
 ```bash
 docker compose run --rm backend pytest common/tests apps/system/tests -q
@@ -4781,7 +4781,7 @@ npm run typecheck
 
 Expected: PASS with deterministic log assertions and no network calls.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/common backend/apps/system backend/apps/discovery backend/apps/sources backend/config backend/requirements frontend/src/app frontend/Dockerfile frontend/package.json frontend/package-lock.json docker-compose.yml .env.example

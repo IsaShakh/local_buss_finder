@@ -15,6 +15,7 @@ from apps.geography.models import SearchArea
 from apps.sources.models import Source
 from apps.taxonomy.models import BusinessCategory
 from apps.taxonomy.services import resolve_external_categories
+from common.observability import structured_event
 
 type Enqueue = Callable[[UUID], None]
 
@@ -144,5 +145,15 @@ def start_campaign(
     campaign.status = DiscoveryCampaign.Status.QUEUED
     campaign.total_jobs = len(selections)
     campaign.save(update_fields=("status", "total_jobs", "updated_at"))
-    transaction.on_commit(lambda: enqueue(campaign.id))
+
+    def log_and_enqueue() -> None:
+        structured_event(
+            "campaign.queued",
+            campaign_id=campaign.id,
+            correlation_id=str(campaign.id),
+            message="Campaign queued",
+        )
+        enqueue(campaign.id)
+
+    transaction.on_commit(log_and_enqueue)
     return campaign

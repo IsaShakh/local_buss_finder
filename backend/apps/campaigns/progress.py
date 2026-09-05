@@ -8,6 +8,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 
 from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+from common.observability import structured_event
 
 type TerminalRunStatus = Literal["completed", "completed_with_errors", "failed"]
 
@@ -87,6 +88,15 @@ def try_finalize_campaign(campaign_id: UUID) -> DiscoveryCampaign.Status:
         campaign.status = status
         campaign.finished_at = timezone.now()
         campaign.save(update_fields=("status", "finished_at", "updated_at"))
+        transaction.on_commit(
+            lambda: structured_event(
+                "campaign.finished",
+                campaign_id=campaign.id,
+                correlation_id=str(campaign.id),
+                error_code=None if status == DiscoveryCampaign.Status.COMPLETED else status,
+                message="Campaign finished",
+            )
+        )
         return campaign.status
 
 
@@ -134,6 +144,16 @@ def finalize_source_run(
             campaign.completed_jobs += 1
             fields = ("completed_jobs", "updated_at")
         campaign.save(update_fields=fields)
+        transaction.on_commit(
+            lambda: structured_event(
+                "source_run.finished",
+                campaign_id=campaign.id,
+                source_run_id=source_run.id,
+                correlation_id=str(campaign.id),
+                error_code=source_run.error_code,
+                message="Source run finished",
+            )
+        )
         transaction.on_commit(lambda: try_finalize_campaign(campaign.id))
         return source_run.status
 
