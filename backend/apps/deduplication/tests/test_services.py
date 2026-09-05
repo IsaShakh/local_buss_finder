@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -7,6 +8,7 @@ from django.db import connection, transaction
 from apps.businesses.models import Business, BusinessSourceMembership, DuplicateCandidate
 from apps.deduplication.materialization import seed_business
 from apps.taxonomy.models import BusinessCategory
+from common.observability import StructuredJsonFormatter
 
 pytestmark = pytest.mark.django_db
 
@@ -208,6 +210,83 @@ def test_resolution_rolls_back_with_outer_transaction_and_defers_contact_free_ev
         assert not caplog.records
     assert caplog.records
     assert "+905321234567" not in str([log.__dict__ for log in caplog.records])
+
+
+@pytest.mark.parametrize(
+    "action,score,codes",
+    [
+        ("seeded", 0, []),
+        ("source_identity", 100, ["source_identity"]),
+        (
+            "automatic",
+            100,
+            ["exact_phone", "exact_domain", "exact_name", "exact_address", "distance_25m"],
+        ),
+    ],
+)
+def test_resolution_serializes_complete_safe_audit_context_after_commit(
+    owner,
+    normalized_record_factory,
+    django_capture_on_commit_callbacks,
+    caplog,
+    action,
+    score,
+    codes,
+):
+    """Catches dropped audit fields, wrong resolution evidence, and raw-data leaks."""
+    contacts = {
+        "display_name": "Private clinic name",
+        "address_text": "Private address 123",
+        "phones": ["+905321234567"],
+        "emails": ["private@clinic.test"],
+        "websites": ["https://private-clinic.test/contact"],
+    }
+    if action != "seeded":
+        first = normalized_record_factory(source_code="first", **contacts)
+        seed_business(normalized_record=first, owner_id=owner.id)
+    if action == "automatic":
+        second = normalized_record_factory(source_code="second", **contacts)
+        seed_business(normalized_record=second, owner_id=owner.id)
+    record = normalized_record_factory(
+        source_code="first" if action == "source_identity" else "incoming", **contacts
+    )
+    if action == "source_identity":
+        record.source_record.external_id = first.source_record.external_id
+        record.source_record.save(update_fields=["external_id"])
+    caplog.set_level(logging.INFO, logger="common.observability")
+
+    with django_capture_on_commit_callbacks(execute=True):
+        outcome = resolve(record)
+        assert not caplog.records
+
+    assert len(caplog.records) == 1
+    rendered = StructuredJsonFormatter().format(caplog.records[0])
+    payload = json.loads(rendered)
+    assert payload["owner_id"] == owner.id
+    assert payload["normalized_record_id"] == str(record.id)
+    assert payload["business_id"] == str(outcome.business_id)
+    assert payload["candidate_ids"] == [str(pk) for pk in outcome.candidate_ids]
+    assert len(payload["candidate_ids"]) == (1 if action == "automatic" else 0)
+    assert payload["resolution_version"] == "deterministic-v1"
+    assert payload["score"] == score
+    assert payload["action"] == action
+    assert payload["event"] == f"business.resolution.{action}"
+    assert payload["signal_codes"] == codes
+    assert payload["campaign_id"] == str(record.source_record.campaign_id)
+    assert payload["source_record_id"] == str(record.source_record_id)
+    assert payload["source_run_id"] == str(record.source_record.source_run_id)
+    assert payload["source"] == record.source_record.source.code
+    for forbidden in (
+        "Private clinic name",
+        "Private address 123",
+        "+905321234567",
+        "private@clinic.test",
+        "https://private-clinic.test/contact",
+        '"value"',
+        '"weight"',
+        '"signals"',
+    ):
+        assert forbidden not in rendered
 
 
 @pytest.mark.django_db(transaction=True)

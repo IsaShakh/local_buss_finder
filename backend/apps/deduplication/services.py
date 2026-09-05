@@ -10,7 +10,7 @@ from apps.deduplication.locks import owner_resolution_lock
 from apps.deduplication.materialization import rebuild_business, seed_business
 from apps.deduplication.scoring import CANDIDATE_SCORE_THRESHOLD, RESOLUTION_VERSION
 from apps.sources.models import NormalizedSourceRecord
-from common.observability import structured_event
+from common.observability import structured_resolution_event
 
 
 @dataclass(frozen=True)
@@ -23,9 +23,9 @@ class ResolutionOutcome:
 
 @transaction.atomic
 def resolve_normalized_record(normalized_record_id: UUID) -> ResolutionOutcome:
-    record = NormalizedSourceRecord.objects.select_related("source_record__campaign").get(
-        id=normalized_record_id
-    )
+    record = NormalizedSourceRecord.objects.select_related(
+        "source_record__campaign", "source_record__source"
+    ).get(id=normalized_record_id)
     owner_id = record.source_record.campaign.created_by_id
     with owner_resolution_lock(owner_id):
         existing = BusinessSourceMembership.objects.filter(normalized_record_id=record.id).first()
@@ -66,16 +66,22 @@ def resolve_normalized_record(normalized_record_id: UUID) -> ResolutionOutcome:
             rebuild_business(business_id=business.id)
         # Seed materialization already rebuilds; both paths share that public policy.
         outcome = ResolutionOutcome(business.id, membership.id, action, tuple(candidate_ids))
-        transaction.on_commit(
-            lambda: structured_event(
-                f"business.resolution.{action}",
-                campaign_id=record.source_record.campaign_id,
-                source_run_id=record.source_record.source_run_id,
-                source_record_id=record.source_record_id,
-                correlation_id=str(record.source_record.campaign_id),
-                message="Normalized source record resolved",
-            )
-        )
+        # Freeze only committed decision evidence, with no raw signal/contact values.
+        event_context = {
+            "owner_id": owner_id,
+            "normalized_record_id": record.id,
+            "business_id": outcome.business_id,
+            "candidate_ids": outcome.candidate_ids,
+            "resolution_version": membership.resolution_version,
+            "score": membership.match_score,
+            "action": action,
+            "signal_codes": tuple(signal["code"] for signal in membership.match_signals),
+            "campaign_id": record.source_record.campaign_id,
+            "source_run_id": record.source_record.source_run_id,
+            "source_record_id": record.source_record_id,
+            "source": record.source_record.source.code,
+        }
+        transaction.on_commit(lambda: structured_resolution_event(**event_context))
         return outcome
 
 

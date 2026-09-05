@@ -1,6 +1,6 @@
 import { request } from '../../api/client';
 import { businessPageSchema, duplicateCandidatePageSchema, duplicateDecisionSchema } from './types';
-import type { BusinessListQuery, DuplicateCandidate, DuplicateDecision } from './types';
+import type { BusinessListQuery, DuplicateDecision } from './types';
 
 const PAGE_SIZE = 50;
 
@@ -16,16 +16,9 @@ export async function listBusinesses(query: BusinessListQuery) {
   return businessPageSchema.parse(body);
 }
 
-export async function getDuplicateCandidates(): Promise<DuplicateCandidate[]> {
-  const candidates: DuplicateCandidate[] = [];
-  let page = 1;
-  while (true) {
-    const body = await request<unknown>(`/api/v1/duplicate-candidates/?page=${page}&page_size=${PAGE_SIZE}`);
-    const result = duplicateCandidatePageSchema.parse(body);
-    candidates.push(...result.results);
-    if (result.next === null) return candidates;
-    page += 1;
-  }
+export async function getDuplicateCandidates(page: number) {
+  const body = await request<unknown>(`/api/v1/duplicate-candidates/?page=${page}&page_size=${PAGE_SIZE}`);
+  return duplicateCandidatePageSchema.parse(body);
 }
 
 export async function confirmDuplicate(id: string): Promise<DuplicateDecision> {

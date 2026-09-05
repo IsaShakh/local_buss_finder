@@ -19,20 +19,23 @@ export function useBusinessFilters() {
   return { sources, categories };
 }
 
-export function useDuplicateCandidates() {
-  return useQuery({ queryKey: ['duplicate-candidates'], queryFn: getDuplicateCandidates });
+export function useDuplicateCandidates(page: number) {
+  return useQuery({ queryKey: ['duplicate-candidates', page], queryFn: () => getDuplicateCandidates(page) });
 }
 
 export function useDuplicateDecision() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'confirm' | 'reject' }) =>
+    mutationFn: ({ id, action }: { id: string; action: 'confirm' | 'reject'; returnToPage?: number }) =>
       action === 'confirm' ? confirmDuplicate(id) : rejectDuplicate(id),
-    onSuccess: async () => {
+    onSuccess: async (_, { returnToPage }) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['businesses'] }),
-        client.invalidateQueries({ queryKey: ['duplicate-candidates'] }),
+        client.invalidateQueries({ queryKey: ['duplicate-candidates'], type: 'active', refetchType: returnToPage ? 'none' : 'active' }),
         client.invalidateQueries({ queryKey: ['dashboard-summary'] }),
+        // The destination becomes visible after success. Refresh it on mount,
+        // without requesting the last page that the decision just removed.
+        ...(returnToPage ? [client.invalidateQueries({ queryKey: ['duplicate-candidates', returnToPage], exact: true, refetchType: 'none' })] : []),
       ]);
     },
   });

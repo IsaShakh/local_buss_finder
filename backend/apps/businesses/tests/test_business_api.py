@@ -1,7 +1,10 @@
+import re
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.businesses.models import Business
 
@@ -187,6 +190,54 @@ def test_business_pagination_defaults_to_fifty_and_supports_one_hundred(auth_cli
     assert {row["id"] for row in first["results"]}.isdisjoint(
         row["id"] for row in second["results"]
     )
+
+
+@pytest.mark.parametrize("filter_by_source", [False, True])
+def test_business_pagination_projects_only_page_ids_after_narrow_count_and_slice(
+    auth_client, business_factory, filter_by_source
+):
+    """Catches full-result aggregate work, wide DISTINCT, and lost page ordering."""
+    businesses = [
+        business_factory(display_name=name, sources=("osm", "osm", "overture"))
+        for name in ("Alpha", "Beta", "Gamma", "Omega", "Zeta")
+    ]
+    filters = {}
+    if filter_by_source:
+        filters["source"] = (
+            businesses[0].memberships.first().normalized_record.source_record.source.code
+        )
+
+    with CaptureQueriesContext(connection) as captured:
+        response = auth_client.get(URL, {**filters, "page": 2, "page_size": 2})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 5
+    assert [row["id"] for row in body["results"]] == [
+        str(businesses[2].id),
+        str(businesses[3].id),
+    ]
+    assert [row["source_record_count"] for row in body["results"]] == [3, 3]
+    assert [row["source_count"] for row in body["results"]] == [2, 2]
+    queries = [entry["sql"] for entry in captured if entry["sql"].startswith("SELECT")]
+    for narrow in queries[:2]:
+        assert "COALESCE" not in narrow, narrow
+        assert "SELECT DISTINCT" not in narrow, narrow
+        assert "GROUP BY" not in narrow, narrow
+    assert len(queries) == 3, queries
+    count, page_ids, projection = queries
+    assert re.match(r'SELECT "businesses_business"\."id"(?: AS "id")? FROM ', page_ids), page_ids
+    assert "LIMIT 2 OFFSET 2" in page_ids
+    if filters:
+        assert "EXISTS" in count and "EXISTS" in page_ids
+    assert projection.count("COALESCE") == 3
+    assert '"businesses_business"."id" IN (' in projection
+    for index, business in enumerate(businesses):
+        assert (business.id.hex in projection.replace("-", "")) is (index in (2, 3))
+    # Summary serialization must not load geography geometry or unused relations.
+    assert '"geography_district"."geometry"' not in projection
+    for relation in ("geography_country", "geography_province", "geography_neighborhood"):
+        assert relation not in projection
 
 
 def test_business_detail_includes_safe_provenance_and_canonical_geography(

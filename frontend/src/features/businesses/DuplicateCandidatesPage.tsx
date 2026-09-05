@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { ApiClientError } from '../../api/errors';
+import { Pagination } from '../../components/Pagination';
 import { useDuplicateCandidates, useDuplicateDecision } from './queries';
 import type { BusinessListItem, DuplicateCandidate } from './types';
 
@@ -27,11 +29,20 @@ function BusinessSummary({ business, label }: { business: BusinessListItem; labe
 type Selection = { candidate: DuplicateCandidate; action: 'confirm' | 'reject'; trigger: HTMLButtonElement };
 
 export function DuplicateCandidatesPage() {
-  const candidates = useDuplicateCandidates();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const parsedPage = Number(searchParams.get('page'));
+  const page = Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const candidates = useDuplicateCandidates(page);
   const decision = useDuplicateDecision();
   const [selection, setSelection] = useState<Selection | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+
+  function setPage(nextPage: number) {
+    const next = new URLSearchParams(searchParams);
+    next.set('page', String(nextPage));
+    setSearchParams(next);
+  }
 
   useEffect(() => {
     if (selection !== null) dialog.current?.showModal();
@@ -47,10 +58,13 @@ export function DuplicateCandidatesPage() {
 
   function submitDecision() {
     if (selection === null || decision.isPending) return;
-    decision.mutate({ id: selection.candidate.id, action: selection.action }, {
+    const returnToPage = page > 1 && candidates.data?.results.length === 1 && candidates.data.next === null
+      ? page - 1 : undefined;
+    decision.mutate({ id: selection.candidate.id, action: selection.action, returnToPage }, {
       onSuccess: () => {
         dialog.current?.close();
         setSelection(null);
+        if (returnToPage) setPage(returnToPage);
         heading.current?.focus();
       },
     });
@@ -68,8 +82,9 @@ export function DuplicateCandidatesPage() {
       <button type="button" onClick={() => void candidates.refetch()} disabled={candidates.isFetching || decision.isPending}>Обновить список</button>
       {candidates.isPending && <p>Загрузка дубликатов…</p>}
       {candidates.isError && <p role="alert">Не удалось загрузить дубликаты.</p>}
-      {candidates.data?.length === 0 && <p className="empty-state">Нет дубликатов для проверки</p>}
-      {candidates.data?.map((candidate) => (
+      {candidates.data && <p>Найдено пар: {candidates.data.count}</p>}
+      {candidates.data?.results.length === 0 && <p className="empty-state">Нет дубликатов для проверки</p>}
+      {candidates.data?.results.map((candidate) => (
         <article className="duplicate-card" key={candidate.id} aria-label="Сравнение компаний">
           <h2>Совпадение: {candidate.score} / 100</h2>
           <ul>{candidate.signals.map((signal) => <li key={signal.code}>{signal.label}</li>)}</ul>
@@ -87,6 +102,15 @@ export function DuplicateCandidatesPage() {
           </div>
         </article>
       ))}
+      {candidates.data && (
+        <Pagination
+          page={page}
+          hasNext={candidates.data.next !== null && !decision.isPending}
+          hasPrevious={candidates.data.previous !== null && !decision.isPending}
+          onNext={() => setPage(page + 1)}
+          onPrevious={() => setPage(Math.max(1, page - 1))}
+        />
+      )}
       {selection !== null && (
         <dialog ref={dialog} className="duplicate-dialog" aria-labelledby="duplicate-decision-title" aria-describedby="duplicate-decision-description" onCancel={(event) => { event.preventDefault(); closeDialog(); }}>
           <h2 id="duplicate-decision-title">{confirming ? 'Объединить компании?' : 'Отметить как разные компании?'}</h2>

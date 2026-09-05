@@ -1,7 +1,18 @@
 import json
 import re
 
-from django.db.models import BooleanField, Count, F, Func, OuterRef, Prefetch, Q, Subquery, Value
+from django.db.models import (
+    BooleanField,
+    Count,
+    Exists,
+    F,
+    Func,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Value,
+)
 from django.db.models.functions import Coalesce
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -148,7 +159,7 @@ def _pending_candidates(owner):
     )
 
 
-def _businesses(owner):
+def _businesses(owner, *, detail=False):
     # Correlated aggregates keep provenance and candidate counts independent of
     # list filters and avoid multiplying membership/candidate joins.
     memberships = (
@@ -167,15 +178,33 @@ def _businesses(owner):
         .annotate(total=Count("id", distinct=True))
         .values("total")
     )
+    related = ["category", "district"]
+    fields = [
+        "id",
+        "display_name",
+        "address_text",
+        "location",
+        "phones",
+        "emails",
+        "websites",
+        "social_urls",
+        "first_seen_at",
+        "last_seen_at",
+        "category__id",
+        "category__name",
+        "category__slug",
+        "district__id",
+        "district__name_ru",
+        "district__slug",
+    ]
+    if detail:
+        related.extend(("country", "province", "neighborhood"))
+        for relation, code in (("country", "code"), ("province", "code"), ("neighborhood", "slug")):
+            fields.extend((f"{relation}__id", f"{relation}__name_ru", f"{relation}__{code}"))
     return (
         Business.active.filter(owner=owner)
-        .select_related(
-            "category",
-            "district",
-            "country",
-            "province",
-            "neighborhood",
-        )
+        .select_related(*related)
+        .only(*fields)
         .annotate(
             source_count=Coalesce(
                 Subquery(
@@ -202,25 +231,36 @@ class BusinessListView(ListAPIView):
     serializer_class = BusinessListSerializer
     pagination_class = StandardPagination
 
+    def list(self, request, *args, **kwargs):
+        page_ids = self.paginate_queryset(self.filter_queryset(self.get_queryset()))
+        summaries = {
+            business.id: business
+            for business in _businesses(request.user).filter(id__in=page_ids).order_by()
+        }
+        # Projection order is independent of the narrow page query's ordering.
+        page = [summaries[pk] for pk in page_ids if pk in summaries]
+        return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
     def get_queryset(self):
         query = BusinessQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
-        queryset = _businesses(self.request.user)
+        queryset = Business.active.filter(owner=self.request.user)
         membership_filters = {}
         if campaign := params.get("campaign"):
-            membership_filters["memberships__normalized_record__source_record__campaign_id"] = (
-                campaign
-            )
+            membership_filters["normalized_record__source_record__campaign_id"] = campaign
         if source := params.get("source"):
-            membership_filters["memberships__normalized_record__source_record__source__code"] = (
-                source
-            )
+            membership_filters["normalized_record__source_record__source__code"] = source
         if membership_filters:
-            membership_filters[
-                "memberships__normalized_record__source_record__campaign__created_by"
-            ] = self.request.user
-            queryset = queryset.filter(**membership_filters)
+            queryset = queryset.filter(
+                Exists(
+                    BusinessSourceMembership.objects.filter(
+                        business_id=OuterRef("pk"),
+                        normalized_record__source_record__campaign__created_by=self.request.user,
+                        **membership_filters,
+                    )
+                )
+            )
         if category := params.get("category"):
             queryset = queryset.filter(category__slug=category)
         if search := params.get("search"):
@@ -238,7 +278,9 @@ class BusinessListView(ListAPIView):
                     )
                 )
             queryset = queryset.filter(contacts)
-        return queryset.order_by(params.get("ordering", "display_name"), "id").distinct()
+        return queryset.order_by(params.get("ordering", "display_name"), "id").values_list(
+            "id", flat=True
+        )
 
 
 class BusinessDetailView(RetrieveAPIView):
@@ -247,7 +289,7 @@ class BusinessDetailView(RetrieveAPIView):
     def get_queryset(self):
         query = StrictInputSerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
-        return _businesses(self.request.user)
+        return _businesses(self.request.user, detail=True)
 
     def get_object(self):
         business = super().get_object()
