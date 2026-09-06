@@ -8,6 +8,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
+from apps.deduplication.services import resolve_normalized_record
 from apps.discovery.domain import RawBusinessRecord
 from apps.geography.models import SearchArea
 from apps.sources.models import NormalizedSourceRecord, SourceRecord
@@ -282,10 +283,12 @@ def materialize_normalization(source_record_id: UUID) -> NormalizedSourceRecord 
                 error_code=result.error_code or "NORMALIZATION_ERROR",
             )
             return None
-        return _materialize_result(
+        normalized = _materialize_result(
             source_record=source_record,
             source_run=source_run,
             campaign=campaign,
             search_area=search_area,
             result=result,
         )
+        resolve_normalized_record(normalized.id)
+        return normalized

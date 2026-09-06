@@ -68,6 +68,21 @@ def test_source_record_list_is_paginated_and_explicitly_noncanonical(
 
 
 @pytest.mark.django_db
+def test_source_record_pagination_keeps_legacy_decimal_query_behavior(
+    auth_client,
+    normalized_records,
+):
+    malformed_page = auth_client.get("/api/v1/source-records/?page=1.0")
+    legacy_default_size = auth_client.get("/api/v1/source-records/?page_size=1.0")
+    integer_size = auth_client.get("/api/v1/source-records/?page_size=1")
+
+    assert malformed_page.status_code == 404
+    assert legacy_default_size.status_code == integer_size.status_code == 200
+    assert len(legacy_default_size.json()["results"]) == 3
+    assert len(integer_size.json()["results"]) == 1
+
+
+@pytest.mark.django_db
 def test_source_record_list_filters_campaign_source_category_and_search(
     auth_client,
     records,

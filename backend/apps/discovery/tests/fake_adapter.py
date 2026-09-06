@@ -21,6 +21,14 @@ FIXTURE_LICENSE = {
 FIXTURE_PAYLOADS: dict[str, tuple[dict[str, JSONValue], ...]] = {
     "overture": (
         {
+            "id": "fixture-ambiguous-overture",
+            "name": "Fixture Meridian Dental",
+            "category": "dentist",
+            "phone": "+902425559876",
+            "longitude": 32.15,
+            "latitude": 36.55,
+        },
+        {
             "id": "fixture-overture-1",
             "name": "Alanya Overture Dental",
             "category": "dentist",
@@ -38,6 +46,14 @@ FIXTURE_PAYLOADS: dict[str, tuple[dict[str, JSONValue], ...]] = {
         },
     ),
     "osm": (
+        {
+            "id": "fixture-ambiguous-osm",
+            "name": "Fixture Meridian Dental",
+            "category": "amenity=dentist",
+            "phone": "+902425559876",
+            "longitude": 32.17,
+            "latitude": 36.55,
+        },
         {
             "id": "fixture-osm-1",
             "name": "Alanya OSM Dental",
@@ -72,12 +88,13 @@ def _coordinate(payload: dict[str, JSONValue], key: str) -> float | None:
 
 def parse_fixture_payload(source_payload: SourcePayload) -> RawBusinessRecord:
     payload = source_payload.payload
+    phone = _text(payload, "phone")
     return RawBusinessRecord(
         external_id=source_payload.external_id,
         raw_name=_text(payload, "name"),
         raw_category=_text(payload, "category"),
         raw_address=_text(payload, "address"),
-        raw_phones=(),
+        raw_phones=(phone,) if phone else (),
         raw_emails=(),
         raw_websites=(),
         raw_social_urls={},

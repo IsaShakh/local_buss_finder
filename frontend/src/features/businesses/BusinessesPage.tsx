@@ -4,10 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
 import type { DataTableColumn } from '../../components/DataTable';
 import { Pagination } from '../../components/Pagination';
-import { SourceBadge } from '../../components/SourceBadge';
 import type { BusinessCategory } from '../taxonomy/types';
-import { useBusinessFilters, useSourceRecords } from './queries';
-import type { SourceRecordListItem, SourceRecordQuery } from './types';
+import { useBusinessFilters, useBusinesses } from './queries';
+import type { BusinessListItem, BusinessListQuery } from './types';
 
 function flattenCategories(categories: BusinessCategory[]): BusinessCategory[] {
   return categories.flatMap((category) => [category, ...flattenCategories(category.children)]);
@@ -44,18 +43,18 @@ export function BusinessesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') ?? '';
   const [searchInput, setSearchInput] = useState(urlSearch);
-  const query = useMemo<SourceRecordQuery>(
+  const query = useMemo<BusinessListQuery>(
     () => ({
       page: positivePage(searchParams.get('page')),
       search: urlSearch || undefined,
       campaign: searchParams.get('campaign') || undefined,
       source: searchParams.get('source') || undefined,
       category: searchParams.get('category') || undefined,
-      ordering: (searchParams.get('ordering') as SourceRecordQuery['ordering']) || undefined,
+      ordering: (searchParams.get('ordering') as BusinessListQuery['ordering']) || undefined,
     }),
     [searchParams, urlSearch],
   );
-  const records = useSourceRecords(query);
+  const businesses = useBusinesses(query);
   const filters = useBusinessFilters();
 
   useEffect(() => {
@@ -85,35 +84,45 @@ export function BusinessesPage() {
     setSearchParams(next);
   }
 
-  function setOrdering(ordering: NonNullable<SourceRecordQuery['ordering']>) {
+  function setOrdering(ordering: NonNullable<BusinessListQuery['ordering']>) {
     const next = new URLSearchParams(searchParams);
     next.set('ordering', ordering);
     next.set('page', '1');
     setSearchParams(next, { replace: true });
   }
 
-  const columns: DataTableColumn<SourceRecordListItem>[] = [
+  const columns: DataTableColumn<BusinessListItem>[] = [
     {
       key: 'display_name',
       header: 'Название',
       render: (row) => row.display_name,
       onHeaderClick: () => setOrdering('display_name'),
     },
-    {
-      key: 'source',
-      header: 'Источник',
-      render: (row) => <SourceBadge code={row.source.code} name={row.source.name} />,
-    },
     { key: 'category', header: 'Категория', render: (row) => row.category?.name ?? '—' },
     { key: 'district', header: 'Район', render: (row) => row.district?.name ?? '—' },
     { key: 'phone', header: 'Телефон', render: (row) => firstWithRemainder(row.phones) },
     { key: 'site', header: 'Сайт', render: (row) => websiteCell(row.websites) },
-    { key: 'status', header: 'Статус', render: () => 'Нормализовано' },
+    { key: 'source_count', header: 'Уникальные источники', render: (row) => row.source_count },
+    { key: 'source_record_count', header: 'Исходные записи', render: (row) => row.source_record_count },
     {
-      key: 'fetched_at',
-      header: 'Получено',
-      render: (row) => new Intl.DateTimeFormat('ru-RU').format(new Date(row.fetched_at)),
-      onHeaderClick: () => setOrdering(query.ordering === '-fetched_at' ? 'fetched_at' : '-fetched_at'),
+      key: 'pending_duplicates',
+      header: 'Дубликаты',
+      render: (row) =>
+        row.pending_duplicate_count > 0
+          ? `Требуется проверка: ${row.pending_duplicate_count}`
+          : 'Нет',
+    },
+    {
+      key: 'first_seen_at',
+      header: 'Впервые замечен',
+      render: (row) => new Intl.DateTimeFormat('ru-RU').format(new Date(row.first_seen_at)),
+    },
+    {
+      key: 'last_seen_at',
+      header: 'Последний раз найден',
+      render: (row) => new Intl.DateTimeFormat('ru-RU').format(new Date(row.last_seen_at)),
+      onHeaderClick: () =>
+        setOrdering(query.ordering === '-last_seen_at' ? 'last_seen_at' : '-last_seen_at'),
     },
   ];
 
@@ -122,13 +131,9 @@ export function BusinessesPage() {
   return (
     <section className="page-stack businesses-page">
       <div>
-        <p className="eyebrow">Source records</p>
+        <p className="eyebrow">Canonical businesses</p>
         <h1>Бизнесы</h1>
       </div>
-      <p className="notice" role="note">
-        Предварительные записи. Дедупликация ещё не выполнена — один бизнес может встречаться в
-        нескольких источниках.
-      </p>
       <div className="business-filters">
         <label>
           Поиск
@@ -170,17 +175,17 @@ export function BusinessesPage() {
           </select>
         </label>
       </div>
-      {records.isPending && <p>Загрузка записей…</p>}
-      {records.isError && <p role="alert">Не удалось загрузить записи.</p>}
-      {records.data?.results.length === 0 && <p className="empty-state">Записей не найдено</p>}
-      {records.data && records.data.results.length > 0 && (
+      {businesses.isPending && <p>Загрузка бизнесов…</p>}
+      {businesses.isError && <p role="alert">Не удалось загрузить бизнесы.</p>}
+      {businesses.data?.results.length === 0 && <p className="empty-state">Бизнесы не найдены</p>}
+      {businesses.data && businesses.data.results.length > 0 && (
         <>
-          <p>Найдено записей: {records.data.count}</p>
-          <DataTable columns={columns} rows={records.data.results} rowKey={(row) => row.id} />
+          <p>Найдено бизнесов: {businesses.data.count}</p>
+          <DataTable columns={columns} rows={businesses.data.results} rowKey={(row) => row.id} />
           <Pagination
             page={query.page}
-            hasNext={records.data.next !== null}
-            hasPrevious={records.data.previous !== null}
+            hasNext={businesses.data.next !== null}
+            hasPrevious={businesses.data.previous !== null}
             onNext={() => setPage(query.page + 1)}
             onPrevious={() => setPage(Math.max(1, query.page - 1))}
           />

@@ -9,12 +9,15 @@ from apps.campaigns.domain import CreateCampaignCommand
 from apps.campaigns.models import CampaignSourceRun, DiscoveryCampaign
 from apps.campaigns.progress import finalize_source_run, try_finalize_campaign
 from apps.campaigns.services import create_campaign, start_campaign
+from apps.deduplication.tests import conftest as deduplication_fixtures
 from apps.discovery.domain import RawBusinessRecord, SourcePayload, SourceProvenance
 from apps.discovery.errors import InvalidSourcePayload
 from apps.normalization.services import materialize_normalization
 from apps.sources.models import SourceRecord
 from apps.sources.services import persist_source_payload
 from apps.sources.tests.fakes import InMemoryRawPayloadStore
+
+normalized_record_factory = deduplication_fixtures.normalized_record_factory
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,42 @@ class RecordsFixture:
     rejected: SourceRecord
     failed: SourceRecord
     foreign: SourceRecord
+
+
+@pytest.fixture
+def business_factory(owner, normalized_record_factory):
+    from apps.businesses.models import Business, BusinessSourceMembership
+    from apps.deduplication.materialization import rebuild_business
+
+    def create(*, sources=("osm",), **kwargs):
+        business = Business.objects.create(owner=owner)
+        for source in sources:
+            normalized = normalized_record_factory(source_code=source, **kwargs)
+            SourceRecord.objects.filter(pk=normalized.source_record_id).update(
+                normalization_status=SourceRecord.NormalizationStatus.NORMALIZED
+            )
+            BusinessSourceMembership.objects.create(business=business, normalized_record=normalized)
+        rebuild_business(business_id=business.id)
+        business.refresh_from_db()
+        return business
+
+    return create
+
+
+@pytest.fixture
+def candidate_factory(owner):
+    from apps.businesses.models import DuplicateCandidate
+
+    def create(left, right, **kwargs):
+        left_id, right_id = DuplicateCandidate.ordered_pair(left.id, right.id)
+        return DuplicateCandidate.objects.create(
+            owner=kwargs.pop("owner", owner),
+            left_business_id=left_id,
+            right_business_id=right_id,
+            **kwargs,
+        )
+
+    return create
 
 
 def _create_campaign_run(*, actor, alanya_area, osm_source, name):

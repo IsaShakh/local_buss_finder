@@ -15,12 +15,14 @@ export function DashboardPage() {
     return <p role="alert">Не удалось загрузить обзор.</p>;
   }
 
-  const { records, campaigns, recent_campaigns: recentCampaigns } = summary.data;
+  const { records, campaigns, businesses, recent_campaigns: recentCampaigns } = summary.data;
   const cards = [
     ['Сырых записей', records.raw],
     ['Нормализовано', records.normalized],
     ['Отклонено', records.rejected],
     ['С ошибками', records.failed],
+    ['Уникальные бизнесы', businesses.active],
+    ['Ожидают проверки', businesses.pending_duplicates],
     ['Кампаний выполняется', campaigns.running],
   ] as const;
 

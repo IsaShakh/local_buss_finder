@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('login → campaign → progress → preliminary records', async ({ page }) => {
+test('login → manual campaign → canonical businesses → duplicate rejection', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Имя пользователя').fill('owner');
   await page.getByLabel('Пароль').fill('e2e-password');
@@ -12,9 +12,43 @@ test('login → campaign → progress → preliminary records', async ({ page })
   await page.getByRole('checkbox', { name: 'Overture Maps' }).check();
   await page.getByRole('checkbox', { name: 'OpenStreetMap' }).check();
   await page.getByRole('button', { name: 'Создать кампанию' }).click();
+  await expect(page.getByText('Черновик', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Запустить кампанию' }).click();
   await expect(page.getByText('Завершена')).toBeVisible({ timeout: 30_000 });
   await page.getByRole('link', { name: 'Бизнесы', exact: true }).click();
-  await expect(page.getByText('Найдено записей: 4')).toBeVisible();
-  await expect(page.getByRole('note')).toContainText('Дедупликация ещё не выполнена');
+  await expect(page.getByText('Найдено бизнесов: 5')).toBeVisible();
+  const rows = page.getByRole('table').locator('tbody tr');
+  await expect(rows).toHaveCount(5);
+  const shared = rows.filter({ hasText: 'Shared Alanya Dental' });
+  await expect(shared).toHaveCount(1);
+  const headers = await page.getByRole('columnheader').allTextContents();
+  const sourceRecordsColumn = headers.indexOf('Исходные записи');
+  expect(sourceRecordsColumn).toBeGreaterThanOrEqual(0);
+  const sourceRecordCounts = await rows.evaluateAll((items, column) =>
+    items.map((row) => Number(row.querySelectorAll('td')[column]?.textContent)), sourceRecordsColumn);
+  expect(sourceRecordCounts.reduce((total, count) => total + count, 0)).toBe(6);
+  await expect(shared.getByRole('cell').nth(sourceRecordsColumn)).toHaveText('2');
+
+  await page.getByRole('link', { name: 'Дубликаты', exact: true }).click();
+  await expect(page.getByRole('article', { name: 'Сравнение компаний' })).toHaveCount(1);
+  await expect(page.getByText('Совпадение: 75 / 100')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fixture Meridian Dental' })).toHaveCount(2);
+  await expect(page.getByText('Совпадает телефон')).toBeVisible();
+  await expect(page.getByText('Shared Alanya Dental')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Это разные компании', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Отметить как разные компании?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Отмена' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Это разные компании', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Это разные компании', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Это разные компании', exact: true }).click();
+  await expect(page.getByText('Нет дубликатов для проверки')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Нет дубликатов для проверки')).toBeVisible();
+  await page.getByRole('link', { name: 'Бизнесы', exact: true }).click();
+  await expect(page.getByText('Найдено бизнесов: 5')).toBeVisible();
+  await expect(rows.filter({ hasText: 'Shared Alanya Dental' })).toHaveCount(1);
+  await expect(rows.filter({ hasText: 'Fixture Meridian Dental' })).toHaveCount(2);
 });
